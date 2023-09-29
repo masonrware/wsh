@@ -72,18 +72,19 @@ int runi() {
     // search path
     else {
       char *path = strtok(PATH, ":");
-      while (path != NULL) {
-        strcat(path, "/");
-        strcat(path, cmd);
-        if (access(path, X_OK) != -1) {
-          printf("FOUND %s EXECUTABLE @ %s\n", cmd, path); 
-          break;
-        }
-        path = strtok(NULL, ":");
-      }
-      // didn't find .exe for cmd
-      printf("ERROR: could not find %s executable on provided path.\n", cmd);
-      wsh_exit();
+      printf("PATH: %s\n", path);
+      // while (path != NULL) {
+      //   strcat(path, "/");
+      //   strcat(path, cmd);
+      //   if (access(path, X_OK) != -1) {
+      //     printf("FOUND %s EXECUTABLE @ %s\n", cmd, path); 
+      //     break;
+      //   }
+      //   path = strtok(NULL, ":");
+      // }
+      // // didn't find .exe for cmd
+      // printf("ERROR: could not find %s executable on provided path.\n", cmd);
+      // wsh_exit();
     }
   }
   return 0;
