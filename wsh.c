@@ -62,9 +62,13 @@ int runi() {
     } 
     
     strcpy(tmp_cmd, cmd);
-    char *cmd_argv[cmd_argc];
-    parse_cmd(cmd, cmd_argc, cmd_argv);
-    
+    char *cmd_argv[cmd_argc];    
+    cmd_seg = strtok(tmp_cmd, " ");
+    for(int i = 0; i<cmd_argc; i++) {
+      cmd_argv[i] = cmd_seg;
+      cmd_seg = strtok(NULL, " ");
+    }
+
     for(int i = 0; i<cmd_argc; i++) {
       printf("cmd %d: %s\n", i, cmd_argv[i]);
     }
