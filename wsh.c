@@ -13,8 +13,11 @@ void wsh_exit() {
   exit(0);
 }
 
-void cd() {
-
+void cd(char *path) {
+  if (chdir(path)!=0) {
+    printf("Error: chdir to %s failed.\n", path);
+    wsh_exit();
+  }
 }
 
 void jobs() {
@@ -46,8 +49,30 @@ int runi() {
     // remove newline
     if (cmd[strlen(cmd)-1] == '\n')
       cmd[strlen(cmd)-1] = '\0';
+
+    // parse command     
+    char tmp_cmd[256];
+    strcpy(tmp_cmd, cmd);
+    int cmd_argc = 0;
+
+    char *cmd_seg = strtok(tmp_cmd, " ");
+    while(cmd_seg !=NULL) {
+      cmd_argc+=1;
+      cmd_seg = strtok(NULL, " ");
+    } 
     
-    // TODO:  potentially separate out arguments provided (ls -la file) 
+	strcpy(tmp_cmd, cmd);
+	char *cmd_argv[cmd_argc];
+    cmd_seg = strtok(tmp_cmd, " ");
+    for(int i = 0; i<cmd_argc; i++) {
+      cmd_argv[i] = cmd_seg;
+      cmd_seg = strtok(NULL, " ");
+    }
+    
+    for(int i = 0; i<cmd_argc; i++) {
+      printf("cmd %d: %s\n", i, cmd_argv[i]);
+    }
+
     
     // exit
     if(strcmp(cmd, "exit") == 0){
@@ -55,6 +80,7 @@ int runi() {
     } 
     // cd
     else if(strcmp(cmd, "cd") == 0) {
+      
       printf("Handle %s\n", cmd);
     }
     // jobs
