@@ -6,7 +6,7 @@
 #include <stdbool.h>
 #include <unistd.h>
 
-#define PATH "/bin"
+#define PATH "/bin:/usr/bin"
 
 // built-in commands
 void wsh_exit() {
@@ -71,19 +71,34 @@ int runi() {
     }
     // search path
     else {
-      char *path = strtok(PATH, ":");
-      while (path != NULL) {
-        strcat(path, "/");
-        strcat(path, cmd);
-      //   if (access(path, X_OK) != -1) {
-      //     printf("FOUND %s EXECUTABLE @ %s\n", cmd, path); 
-      //     break;
-      //   }
-        path = strtok(NULL, ":");
+      int found_exe = 0;
+
+      char tmp_path[256];
+      char tmp_subpath[256];      
+
+      strcpy(tmp_path, PATH);
+
+      char *subpath = strtok(tmp_path, ":");
+      
+      while (subpath != NULL) {
+        strcpy(tmp_subpath, subpath);
+        
+        strcat(tmp_subpath, "/");
+        strcat(tmp_subpath, cmd);
+        
+        if (access(tmp_subpath, X_OK) != -1) {
+           found_exe = 1;
+           // TODO: run executable
+           printf("FOUND %s EXECUTABLE @ %s\n", cmd, tmp_subpath); 
+           break;
+        }
+        subpath = strtok(NULL, ":");
       }
-      // // didn't find .exe for cmd
-      // printf("ERROR: could not find %s executable on provided path.\n", cmd);
-      // wsh_exit();
+      if (found_exe == 0) {
+        // didn't find .exe for cmd
+        printf("ERROR: could not find %s executable on provided path.\n", cmd);
+        wsh_exit();
+      }
     }
   }
   return 0;
