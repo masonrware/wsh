@@ -9,10 +9,9 @@
 #define PATH "/bin:/usr/bin"
 
 // helper functions
-int parse_cmd(char *cmd, char *cmd_argv[]) {
+void parse_cmd(char *cmd, int cmd_argc, char *cmd_argv[]) {
   char tmp_cmd[256];
   strcpy(tmp_cmd, cmd);
-  int cmd_argc = 0;
 
   char *cmd_seg = strtok(tmp_cmd, " ");
   while(cmd_seg !=NULL) {
@@ -26,8 +25,6 @@ int parse_cmd(char *cmd, char *cmd_argv[]) {
     cmd_argv[i] = cmd_seg;
     cmd_seg = strtok(NULL, " ");
   }
-
-  return cmd_argc;
 }
 
 // built-in commands
@@ -75,17 +72,17 @@ int runi() {
     // parse command     
     // char tmp_cmd[256];
     // strcpy(tmp_cmd, cmd);
-    // int cmd_argc = 0;
+    int cmd_argc = 0;
 
-    // char *cmd_seg = strtok(tmp_cmd, " ");
-    // while(cmd_seg !=NULL) {
-    //   cmd_argc+=1;
-    //   cmd_seg = strtok(NULL, " ");
-    // } 
+    char *cmd_seg = strtok(tmp_cmd, " ");
+    while(cmd_seg !=NULL) {
+      cmd_argc+=1;
+      cmd_seg = strtok(NULL, " ");
+    } 
     
     // strcpy(tmp_cmd, cmd);
     char *cmd_argv[cmd_argc];
-    int cmd_argc = (cmd, cmd_argv);
+    parse_cmd(cmd, cmd_argc, cmd_argv);
     
     for(int i = 0; i<cmd_argc; i++) {
       printf("cmd %d: %s\n", i, cmd_argv[i]);
