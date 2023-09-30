@@ -68,32 +68,27 @@ int runi() {
       cmd_argv[i] = cmd_seg;
       cmd_seg = strtok(NULL, " ");
     }
-
-    for(int i = 0; i<cmd_argc; i++) {
-      printf("cmd %d: %s\n", i, cmd_argv[i]);
-    }
-
     
     // exit
-    if(strcmp(cmd, "exit") == 0){
+    if(strcmp(cmd_argv[0], "exit") == 0){
       wsh_exit();
     } 
     // cd
-    else if(strcmp(cmd, "cd") == 0) {
+    else if(strcmp(cmd_argv[0], "cd") == 0) {
       
-      printf("Handle %s\n", cmd);
+      printf("Handle %s\n", cmd_argv[0]);
     }
     // jobs
-    else if(strcmp(cmd, "jobs") == 0) {
-      printf("Handle %s\n", cmd);
+    else if(strcmp(cmd_argv[0], "jobs") == 0) {
+      printf("Handle %s\n", cmd_argv[0]);
     } 
     // fg
-    else if(strcmp(cmd, "fg") == 0) {
-      printf("Handle %s\n", cmd);
+    else if(strcmp(cmd_argv[0], "fg") == 0) {
+      printf("Handle %s\n", cmd_argv[0]);
     } 
     // bg
-    else if(strcmp(cmd, "bg") == 0) {
-      printf("Handle %s\n", cmd);
+    else if(strcmp(cmd_argv[0], "bg") == 0) {
+      printf("Handle %s\n", cmd_argv[0]);
     }
     // search path
     else {
@@ -110,19 +105,19 @@ int runi() {
         strcpy(tmp_subpath, subpath);
         
         strcat(tmp_subpath, "/");
-        strcat(tmp_subpath, cmd);
+        strcat(tmp_subpath, cmd_argv[0]);
         
         if (access(tmp_subpath, X_OK) != -1) {
            found_exe = 1;
            // TODO: run executable
-           printf("FOUND %s EXECUTABLE @ %s\n", cmd, tmp_subpath); 
+           printf("FOUND %s EXECUTABLE @ %s\n", cmd_argv[0], tmp_subpath); 
            break;
         }
         subpath = strtok(NULL, ":");
       }
       if (found_exe == 0) {
         // didn't find .exe for cmd
-        printf("ERROR: could not find %s executable on provided path.\n", cmd);
+        printf("ERROR: could not find %s executable on provided path.\n", cmd_argv[0]);
         wsh_exit();
       }
     }
