@@ -8,25 +8,6 @@
 
 #define PATH "/bin:/usr/bin"
 
-// helper functions
-void parse_cmd(char *cmd, int cmd_argc, char *cmd_argv[]) {
-  char tmp_cmd[256];
-  strcpy(tmp_cmd, cmd);
-
-  char *cmd_seg = strtok(tmp_cmd, " ");
-  while(cmd_seg !=NULL) {
-    cmd_argc+=1;
-    cmd_seg = strtok(NULL, " ");
-  } 
-
-  strcpy(tmp_cmd, cmd);
-  cmd_seg = strtok(tmp_cmd, " ");
-  for(int i = 0; i<cmd_argc; i++) {
-    cmd_argv[i] = cmd_seg;
-    cmd_seg = strtok(NULL, " ");
-  }
-}
-
 // built-in commands
 void wsh_exit() {
   exit(0);
@@ -70,8 +51,8 @@ int runi() {
       cmd[strlen(cmd)-1] = '\0';
 
     // parse command     
-    // char tmp_cmd[256];
-    // strcpy(tmp_cmd, cmd);
+    char tmp_cmd[256];
+    strcpy(tmp_cmd, cmd);
     int cmd_argc = 0;
 
     char *cmd_seg = strtok(tmp_cmd, " ");
@@ -80,7 +61,7 @@ int runi() {
       cmd_seg = strtok(NULL, " ");
     } 
     
-    // strcpy(tmp_cmd, cmd);
+    strcpy(tmp_cmd, cmd);
     char *cmd_argv[cmd_argc];
     parse_cmd(cmd, cmd_argc, cmd_argv);
     
