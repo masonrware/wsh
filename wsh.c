@@ -8,6 +8,22 @@
 
 #define PATH "/bin:/usr/bin"
 
+// helper functions
+
+int start_proc(char *path, char *argv[]) {
+  int pid = fork();
+
+  if(pid == 0){
+  // child
+      execvp(path, argv);
+      exit();
+  }
+  if(pid > 0) {
+      wait();
+      return 0;
+  }
+}
+
 // built-in commands
 void wsh_exit() {
   exit(0);
@@ -108,10 +124,10 @@ int runi() {
         strcat(tmp_subpath, cmd_argv[0]);
         
         if (access(tmp_subpath, X_OK) != -1) {
-           found_exe = 1;
-           // TODO: run executable
-           printf("FOUND %s EXECUTABLE @ %s\n", cmd_argv[0], tmp_subpath); 
-           break;
+          found_exe = 1;
+          //  printf("FOUND %s EXECUTABLE @ %s\n", cmd_argv[0], tmp_subpath); 
+          start_proc(tmp_subpath, cmd_argv);
+          break;
         }
         subpath = strtok(NULL, ":");
       }
