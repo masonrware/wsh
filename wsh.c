@@ -5,22 +5,24 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <unistd.h>
+#include <sys/types.h>
+#include <sys/wait.h>
 
 #define PATH "/bin:/usr/bin"
 
 // helper functions
 
-int start_proc(char *path, char *argv[]) {
+void start_proc(char *path, char *argv[]) {
   int pid = fork();
 
   if(pid == 0){
   // child
-      execvp(path, argv);
-      exit();
+    printf("started child process for %s with pid %d\n", path, pid);
+    execvp(path, argv);
+    exit(0);
   }
   if(pid > 0) {
-      wait();
-      return 0;
+    wait(0);
   }
 }
 
@@ -29,10 +31,18 @@ void wsh_exit() {
   exit(0);
 }
 
-void cd(char *path) {
-  if (chdir(path)!=0) {
-    printf("Error: chdir to %s failed.\n", path);
-    wsh_exit();
+void wsh_cd(int argc, char *argv[]) {
+  if(argc == 1) {
+    // TODO: how to handle just cd?
+    // if (chdir()!=0) {
+    //  printf("Error: chdir to %s failed.\n", path);
+    //  wsh_exit();
+    // }
+  } else {
+    if (chdir(argv[1])!=0) {
+      printf("Error: chdir to %s failed.\n", argv[1]);
+      wsh_exit();
+    }
   }
 }
 
@@ -84,6 +94,8 @@ int runi() {
       cmd_argv[i] = cmd_seg;
       cmd_seg = strtok(NULL, " ");
     }
+
+    //TODO: finish rest of built-in commands
     
     // exit
     if(strcmp(cmd_argv[0], "exit") == 0){
@@ -91,8 +103,11 @@ int runi() {
     } 
     // cd
     else if(strcmp(cmd_argv[0], "cd") == 0) {
-      
-      printf("Handle %s\n", cmd_argv[0]);
+      if(cmd_argc > 2) {
+        printf("Usage: cd [path]\n");
+        wsh_exit();
+      }
+      wsh_cd(cmd_argc, cmd_argv); 
     }
     // jobs
     else if(strcmp(cmd_argv[0], "jobs") == 0) {
