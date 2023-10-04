@@ -20,7 +20,7 @@ struct proc
   int fg;
   // proc name
   char name[256];
-}
+};
 
 // array of all processes
 struct proc processes[256];
@@ -114,7 +114,7 @@ void wsh_jobs()
   for (int i = 0; i < 256; i++)
   {
     // end when the entry is null
-    if (processes[i] == NULL)
+    if (strcmp(processes[i].name,"") == 0)
     {
       break;
     }
@@ -227,7 +227,7 @@ int runi()
     // jobs
     else if (strcmp(cmd_argv[0], "jobs") == 0)
     {
-      jobs();
+      wsh_jobs();
     }
     // fg
     else if (strcmp(cmd_argv[0], "fg") == 0)
@@ -243,7 +243,7 @@ int runi()
     else
     {
       // run process in foreground
-      run_fg_proc(cmd_argv[0], cmd_argv);
+      run_fg_proc(cmd_argv[0], cmd_argc, cmd_argv);
     }
   }
   return 0;
