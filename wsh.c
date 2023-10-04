@@ -37,8 +37,8 @@ void wsh_cd(int argc, char *argv[])
 {
   if (argc != 2)
   {
-    printf("USAGE: cd dir");
-    wsh_exit();
+    printf("USAGE: cd dir\n");
+    // wsh_exit();
   }
   else
   {
@@ -57,9 +57,11 @@ void wsh_jobs()
   // iterate over all possible entires in processes array
   for (int i = 0; i < 256; i++)
   {
+    printf("Searching processes array!\n");
     // end when the entry is null
     if (strcmp(processes[i].name,"") == 0)
     {
+      printf("Found null entry\n");
       break;
     }
     // only print background jobs
@@ -89,7 +91,7 @@ void wsh_fg(int argc, char *argv[])
   else
   {
     printf("USAGE: fg [job_id]\n");
-    wsh_exit();
+    // wsh_exit();
   }
 }
 
@@ -107,7 +109,7 @@ void wsh_bg(int argc, char *argv[])
   else
   {
     printf("USAGE: fg [job_id]\n");
-    wsh_exit();
+    // wsh_exit();
   }
 }
 
