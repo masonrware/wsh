@@ -46,7 +46,7 @@ void wsh_cd(int argc, char *argv[])
     if (chdir(argv[1]) != 0)
     {
       printf("Error: chdir to %s failed.\n", argv[1]);
-      wsh_exit();
+      // wsh_exit();
     }
   }
 }
@@ -58,12 +58,14 @@ void wsh_jobs()
   for (int i = 0; i < 256; i++)
   {
     printf("Searching processes array!\n");
+
     // end when the entry is null
-    if (strcmp(processes[i].name,"") == 0)
-    {
-      printf("Found null entry\n");
-      break;
-    }
+    // if (strcmp(processes[i].name,"") == 0)
+    // {
+    //  printf("Found null entry\n");
+    //  break;
+    // }
+
     // only print background jobs
     if (processes[i].fg == 0)
     {
@@ -125,6 +127,10 @@ void run_fg_proc(char *file, int argc, char *argv[])
   // child
   else if (pid == 0)
   {
+    struct proc curr_proc = {
+      name = file;
+ 
+    }
     // populate process struct in processes array
     strcpy(processes[curr_id].name, file);
     processes[curr_id].argc = argc;
@@ -135,7 +141,7 @@ void run_fg_proc(char *file, int argc, char *argv[])
     processes[curr_id].job_id = curr_id + 1;
 
     curr_id += 1;
-
+    
     // execute job
     execvp(file, argv);
     exit(0);
@@ -149,6 +155,12 @@ void run_fg_proc(char *file, int argc, char *argv[])
 
 void run_bg_proc(char *file, int argc, char *argv[])
 {
+
+  printf("running: %s\n", file);
+  for (int i = 0; i<argc; i++) {
+    printf("arg%d: %s\n", i, argv[i]);
+  }
+
   int pid = fork();
 
   if (pid < 0)
@@ -210,6 +222,8 @@ int runi()
       cmd_argc += 1;
       cmd_seg = strtok(NULL, " ");
     }
+    // add room for NULL termination
+    cmd_argc += 1;
 
     strcpy(tmp_cmd, cmd);
     char *cmd_argv[cmd_argc];
@@ -219,6 +233,8 @@ int runi()
       cmd_argv[i] = cmd_seg;
       cmd_seg = strtok(NULL, " ");
     }
+    // NULL terminate
+    cmd_argv[cmd_argc] = NULL;
 
     // exit
     if (strcmp(cmd_argv[0], "exit") == 0)
