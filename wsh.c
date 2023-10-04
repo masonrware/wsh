@@ -126,7 +126,9 @@ void run_fg_proc(char *file, int argc, char *argv[])
     // populate process struct in processes array
     strcpy(processes[curr_id].name, file);
     processes[curr_id].argc = argc;
-    processes[curr_id].argv = argv;
+    for (int i = 0; i<argc; i++) {
+      processes[curr_id].argv[i] = argv[i];
+    }
     processes[curr_id].fg = 0;
     processes[curr_id].job_id = curr_id + 1;
 
@@ -156,7 +158,9 @@ void run_bg_proc(char *file, int argc, char *argv[])
   // populate process struct in processes array
   strcpy(processes[curr_id].name, file);
   processes[curr_id].argc = argc;
-  processes[curr_id].argv = argv;
+  for (int i = 0; i<argc; i++) {
+    processes[curr_id].argv[i] = argv[i];
+  }
   processes[curr_id].fg = 1;
   processes[curr_id].job_id = curr_id + 1;
 
