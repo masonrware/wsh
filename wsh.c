@@ -129,7 +129,7 @@ void run_fg_proc(char *file, int argc, char *argv[])
   else if (pid == 0)
   {
     struct proc curr_proc;
-
+    
     // populate process struct in processes array
     strcpy(curr_proc.name, file);
     curr_proc.argc = argc;
@@ -138,8 +138,12 @@ void run_fg_proc(char *file, int argc, char *argv[])
     }
     curr_proc.fg = 0;
     curr_proc.job_id = curr_id + 1;
+    
+    printf("name: %s, id: %d, fg?:%d\n", curr_proc.name, curr_proc.job_id, curr_proc.fg);
 
     processes[curr_id] = curr_proc;
+    
+    printf("PROCESS ARRAY: name: %s, id: %d, fg?:%d\n", processes[curr_id].name, processes[curr_id].job_id, processes[curr_id].fg);
 
     curr_id += 1;
     
@@ -151,6 +155,7 @@ void run_fg_proc(char *file, int argc, char *argv[])
   else if (pid > 0)
   {
     wait(0);
+    printf("FROM PARENT: name: %s, id: %d, fg?:%d\n", processes[curr_id].name, processes[curr_id].job_id, processes[curr_id].fg);
   }
 }
 
