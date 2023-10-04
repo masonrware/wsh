@@ -27,62 +27,6 @@ struct proc processes[256];
 
 int curr_id = 0;
 
-// helper functions
-void run_fg_proc(char *file, int argc, char *argv[])
-{
-  int pid = fork();
-  if (pid < 0)
-  {
-    printf("ERROR: error running %s as a child process.\n", file);
-    wsh_exit();
-  }
-  // child
-  else if (pid == 0)
-  {
-    // populate process struct in processes array
-    strcpy(processes[curr_id].name, file);
-    processes[curr_id].argc = argc;
-    processes[curr_id].argv = argv;
-    processes[curr_id].fg = 0;
-    processes[curr_id].job_id = curr_id + 1;
-
-    curr_id += 1;
-
-    // execute job
-    execvp(file, argv);
-    exit(0);
-  }
-  // parent
-  else if (pid > 0)
-  {
-    wait(0);
-  }
-}
-
-void run_bg_proc(char *file, int argc, char *argv[])
-{
-  int pid = fork();
-
-  if (pid < 0)
-  {
-    printf("ERROR: error running %s as a child process.\n", file);
-    wsh_exit();
-  }
-
-  // populate process struct in processes array
-  strcpy(processes[curr_id].name, file);
-  processes[curr_id].argc = argc;
-  processes[curr_id].argv = argv;
-  processes[curr_id].fg = 1;
-  processes[curr_id].job_id = curr_id + 1;
-
-  curr_id += 1;
-
-  // execute job
-  execvp(file, argv);
-  exit(0);
-}
-
 // built-in commands
 void wsh_exit()
 {
@@ -165,6 +109,62 @@ void wsh_bg(int argc, char *argv[])
     printf("USAGE: fg [job_id]\n");
     wsh_exit();
   }
+}
+
+// helper functions
+void run_fg_proc(char *file, int argc, char *argv[])
+{
+  int pid = fork();
+  if (pid < 0)
+  {
+    printf("ERROR: error running %s as a child process.\n", file);
+    wsh_exit();
+  }
+  // child
+  else if (pid == 0)
+  {
+    // populate process struct in processes array
+    strcpy(processes[curr_id].name, file);
+    processes[curr_id].argc = argc;
+    processes[curr_id].argv = argv;
+    processes[curr_id].fg = 0;
+    processes[curr_id].job_id = curr_id + 1;
+
+    curr_id += 1;
+
+    // execute job
+    execvp(file, argv);
+    exit(0);
+  }
+  // parent
+  else if (pid > 0)
+  {
+    wait(0);
+  }
+}
+
+void run_bg_proc(char *file, int argc, char *argv[])
+{
+  int pid = fork();
+
+  if (pid < 0)
+  {
+    printf("ERROR: error running %s as a child process.\n", file);
+    wsh_exit();
+  }
+
+  // populate process struct in processes array
+  strcpy(processes[curr_id].name, file);
+  processes[curr_id].argc = argc;
+  processes[curr_id].argv = argv;
+  processes[curr_id].fg = 1;
+  processes[curr_id].job_id = curr_id + 1;
+
+  curr_id += 1;
+
+  // execute job
+  execvp(file, argv);
+  exit(0);
 }
 
 // run function for interactive mode
