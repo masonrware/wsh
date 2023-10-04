@@ -8,59 +8,170 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-#define PATH "/bin:/usr/bin"
+struct proc
+{
+  // job id
+  int job_id;
+  // arg count
+  int argc;
+  // arg array
+  char *argv[256];
+  // foreground bool
+  int fg;
+  // proc name
+  char name[256];
+}
+
+// array of all processes
+struct proc processes[256];
+
+int curr_id = 0;
 
 // helper functions
-
-void start_proc(char *path, char *argv[]) {
+void run_fg_proc(char *file, int argc, char *argv[])
+{
   int pid = fork();
-
-  if(pid == 0){
+  if (pid < 0)
+  {
+    printf("ERROR: error running %s as a child process.\n", file);
+    wsh_exit();
+  }
   // child
-    printf("started child process for %s with pid %d\n", path, pid);
-    execvp(path, argv);
+  else if (pid == 0)
+  {
+    // populate process struct in processes array
+    strcpy(processes[curr_id].name, file);
+    processes[curr_id].argc = argc;
+    processes[curr_id].argv = argv;
+    processes[curr_id].fg = 0;
+    processes[curr_id].job_id = curr_id + 1;
+
+    curr_id += 1;
+
+    // execute job
+    execvp(file, argv);
     exit(0);
   }
-  if(pid > 0) {
+  // parent
+  else if (pid > 0)
+  {
     wait(0);
   }
 }
 
-// built-in commands
-void wsh_exit() {
+void run_bg_proc(char *file, int argc, char *argv[])
+{
+  int pid = fork();
+
+  if (pid < 0)
+  {
+    printf("ERROR: error running %s as a child process.\n", file);
+    wsh_exit();
+  }
+
+  // populate process struct in processes array
+  strcpy(processes[curr_id].name, file);
+  processes[curr_id].argc = argc;
+  processes[curr_id].argv = argv;
+  processes[curr_id].fg = 1;
+  processes[curr_id].job_id = curr_id + 1;
+
+  curr_id += 1;
+
+  // execute job
+  execvp(file, argv);
   exit(0);
 }
 
-void wsh_cd(int argc, char *argv[]) {
-  if(argc == 1) {
-    // TODO: how to handle just cd?
-    // if (chdir()!=0) {
-    //  printf("Error: chdir to %s failed.\n", path);
-    //  wsh_exit();
-    // }
-  } else {
-    if (chdir(argv[1])!=0) {
+// built-in commands
+void wsh_exit()
+{
+  exit(0);
+}
+
+void wsh_cd(int argc, char *argv[])
+{
+  if (argc != 2)
+  {
+    printf("USAGE: cd dir");
+    wsh_exit();
+  }
+  else
+  {
+    // change directories
+    if (chdir(argv[1]) != 0)
+    {
       printf("Error: chdir to %s failed.\n", argv[1]);
       wsh_exit();
     }
   }
 }
 
-void jobs() {
-
+// <id>: <program name> <arg1> <arg2> … <argN> [&]
+void wsh_jobs()
+{
+  // iterate over all possible entires in processes array
+  for (int i = 0; i < 256; i++)
+  {
+    // end when the entry is null
+    if (processes[i] == NULL)
+    {
+      break;
+    }
+    // only print background jobs
+    if (processes[i].fg == 0)
+    {
+      printf("%d: ", processes[i].job_id);
+      for (int j = 0; j < processes[i].argc; j++)
+      {
+        printf("%s ", processes[i].argv[j]);
+      }
+      printf("\n");
+    }
+  }
 }
 
-void fg() {
-
+// TODO finish fg
+void wsh_fg(int argc, char *argv[])
+{
+  // id was provided
+  if (argc == 2)
+  {
+  }
+  // use most recent id
+  else if (argc == 1)
+  {
+  }
+  else
+  {
+    printf("USAGE: fg [job_id]\n");
+    wsh_exit();
+  }
 }
 
-void bg() {
-
+// TODO finish bg
+void wsh_bg(int argc, char *argv[])
+{
+  // id was provided
+  if (argc == 2)
+  {
+  }
+  // use most recent id
+  else if (argc == 1)
+  {
+  }
+  else
+  {
+    printf("USAGE: fg [job_id]\n");
+    wsh_exit();
+  }
 }
 
 // run function for interactive mode
-int runi() {
-  while(true) {
+int runi()
+{
+  while (true)
+  {
     printf("wsh> ");
 
     // collect user cmd
@@ -68,116 +179,102 @@ int runi() {
     char *line = fgets(cmd, sizeof(cmd), stdin);
 
     // check if EOF is reached/input
-    if(line == NULL){
-	  wsh_exit();
+    if (line == NULL)
+    {
+      wsh_exit();
     }
 
     // remove newline
-    if (cmd[strlen(cmd)-1] == '\n')
-      cmd[strlen(cmd)-1] = '\0';
+    if (cmd[strlen(cmd) - 1] == '\n')
+    {
+      cmd[strlen(cmd) - 1] = '\0';
+    }
 
-    // parse command     
+    // TODO: check for pipe char and & char
+    // TODO: I think we have to be able to handle both, so maybe create booleans to then handle these cases after command has been fully parsed
+    
+    // parse command
     char tmp_cmd[256];
     strcpy(tmp_cmd, cmd);
     int cmd_argc = 0;
 
     char *cmd_seg = strtok(tmp_cmd, " ");
-    while(cmd_seg !=NULL) {
-      cmd_argc+=1;
+    while (cmd_seg != NULL)
+    {
+      cmd_argc += 1;
       cmd_seg = strtok(NULL, " ");
-    } 
-    
+    }
+
     strcpy(tmp_cmd, cmd);
-    char *cmd_argv[cmd_argc];    
+    char *cmd_argv[cmd_argc];
     cmd_seg = strtok(tmp_cmd, " ");
-    for(int i = 0; i<cmd_argc; i++) {
+    for (int i = 0; i < cmd_argc; i++)
+    {
       cmd_argv[i] = cmd_seg;
       cmd_seg = strtok(NULL, " ");
     }
 
-    //TODO: finish rest of built-in commands
-    
     // exit
-    if(strcmp(cmd_argv[0], "exit") == 0){
+    if (strcmp(cmd_argv[0], "exit") == 0)
+    {
       wsh_exit();
-    } 
+    }
     // cd
-    else if(strcmp(cmd_argv[0], "cd") == 0) {
-      if(cmd_argc > 2) {
-        printf("Usage: cd [path]\n");
-        wsh_exit();
-      }
-      wsh_cd(cmd_argc, cmd_argv); 
+    else if (strcmp(cmd_argv[0], "cd") == 0)
+    {
+      wsh_cd(cmd_argc, cmd_argv);
     }
     // jobs
-    else if(strcmp(cmd_argv[0], "jobs") == 0) {
-      printf("Handle %s\n", cmd_argv[0]);
-    } 
+    else if (strcmp(cmd_argv[0], "jobs") == 0)
+    {
+      jobs();
+    }
     // fg
-    else if(strcmp(cmd_argv[0], "fg") == 0) {
-      printf("Handle %s\n", cmd_argv[0]);
-    } 
+    else if (strcmp(cmd_argv[0], "fg") == 0)
+    {
+      wsh_fg(cmd_argc, cmd_argv);
+    }
     // bg
-    else if(strcmp(cmd_argv[0], "bg") == 0) {
-      printf("Handle %s\n", cmd_argv[0]);
+    else if (strcmp(cmd_argv[0], "bg") == 0)
+    {
+      wsh_bg(cmd_argc, cmd_argv);
     }
     // search path
-    else {
-      int found_exe = 0;
-
-      char tmp_path[256];
-      char tmp_subpath[256];      
-
-      strcpy(tmp_path, PATH);
-
-      char *subpath = strtok(tmp_path, ":");
-      
-      while (subpath != NULL) {
-        strcpy(tmp_subpath, subpath);
-        
-        strcat(tmp_subpath, "/");
-        strcat(tmp_subpath, cmd_argv[0]);
-        
-        if (access(tmp_subpath, X_OK) != -1) {
-          found_exe = 1;
-          //  printf("FOUND %s EXECUTABLE @ %s\n", cmd_argv[0], tmp_subpath); 
-          start_proc(tmp_subpath, cmd_argv);
-          break;
-        }
-        subpath = strtok(NULL, ":");
-      }
-      if (found_exe == 0) {
-        // didn't find .exe for cmd
-        printf("ERROR: could not find %s executable on provided path.\n", cmd_argv[0]);
-        wsh_exit();
-      }
+    else
+    {
+      // run process in foreground
+      run_fg_proc(cmd_argv[0], cmd_argv);
     }
   }
   return 0;
 }
 
-// run function for batch mode
-int runb(char *batch_file) {
+// TODO: run function for batch mode
+int runb(char *batch_file)
+{
   // open batch file and iterate over it
   return 0;
 }
 
-int main(int argc, char** argv) {
-  if (argc < 1 || argc > 2) {
+int main(int argc, char **argv)
+{
+  if (argc < 1 || argc > 2)
+  {
     printf("Usage: ./wsh [batch_file]\n");
-	exit(1);
+    exit(1);
   }
 
-  // interactive mode  
-  if (argc == 1) {
+  // interactive mode
+  if (argc == 1)
+  {
     runi();
   }
   // batch mode
-  else if (argc == 2) {
+  else if (argc == 2)
+  {
     char *file_name = argv[1];
     runb(file_name);
   }
 
   return 0;
 }
-
