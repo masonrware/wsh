@@ -7,6 +7,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <signal.h>
 
 struct proc
 {
@@ -193,6 +194,9 @@ void run_bg_proc(char *file, int argc, char *argv[])
 // run function for interactive mode
 int runi()
 {
+  // ignore CTRL-C and CTRL-Z
+  signal(SIGINT, SIG_IGN);
+  signal(SIGTSTP, SIG_IGN);
   while (true)
   {
     printf("wsh> ");
