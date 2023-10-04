@@ -127,18 +127,18 @@ void run_fg_proc(char *file, int argc, char *argv[])
   // child
   else if (pid == 0)
   {
-    struct proc curr_proc = {
-      name = file;
- 
-    }
+    struct proc curr_proc;
+
     // populate process struct in processes array
-    strcpy(processes[curr_id].name, file);
-    processes[curr_id].argc = argc;
+    strcpy(curr_proc.name, file);
+    curr_proc.argc = argc;
     for (int i = 0; i<argc; i++) {
-      processes[curr_id].argv[i] = argv[i];
+      curr_proc.argv[i] = argv[i];
     }
-    processes[curr_id].fg = 0;
-    processes[curr_id].job_id = curr_id + 1;
+    curr_proc.fg = 0;
+    curr_proc.job_id = curr_id + 1;
+
+    processes[curr_id] = curr_proc;
 
     curr_id += 1;
     
@@ -170,14 +170,19 @@ void run_bg_proc(char *file, int argc, char *argv[])
   }
 
   // populate process struct in processes array
-  strcpy(processes[curr_id].name, file);
-  processes[curr_id].argc = argc;
-  for (int i = 0; i<argc; i++) {
-    processes[curr_id].argv[i] = argv[i];
-  }
-  processes[curr_id].fg = 1;
-  processes[curr_id].job_id = curr_id + 1;
+  struct proc curr_proc;
 
+  // populate process struct in processes array
+  strcpy(curr_proc.name, file);
+  curr_proc.argc = argc;
+  for (int i = 0; i<argc; i++) {
+    curr_proc.argv[i] = argv[i];
+  }
+  curr_proc.fg = 0;
+  curr_proc.job_id = curr_id + 1;
+
+  processes[curr_id] = curr_proc;
+  
   curr_id += 1;
 
   // execute job
