@@ -119,6 +119,22 @@ void wsh_bg(int argc, char *argv[])
 // helper functions
 void run_fg_proc(char *file, int argc, char *argv[])
 {
+  struct proc curr_proc;
+
+  // populate process struct in processes array
+  strcpy(curr_proc.name, file);
+  curr_proc.argc = argc;
+  for (int i = 0; i < argc; i++)
+  {
+    curr_proc.argv[i] = argv[i];
+  }
+  curr_proc.fg = 0;
+  curr_proc.job_id = curr_id + 1;
+
+  processes[curr_id] = curr_proc;
+
+  curr_id += 1;
+  
   int pid = fork();
   if (pid < 0)
   {
@@ -128,22 +144,6 @@ void run_fg_proc(char *file, int argc, char *argv[])
   // child
   else if (pid == 0)
   {
-    struct proc curr_proc;
-
-    // populate process struct in processes array
-    strcpy(curr_proc.name, file);
-    curr_proc.argc = argc;
-    for (int i = 0; i < argc; i++)
-    {
-      curr_proc.argv[i] = argv[i];
-    }
-    curr_proc.fg = 0;
-    curr_proc.job_id = curr_id + 1;
-
-    processes[curr_id] = curr_proc;
-
-    curr_id += 1;
-
     // execute job
     execvp(file, argv);
   }
