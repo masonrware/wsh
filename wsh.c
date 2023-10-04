@@ -61,11 +61,11 @@ void wsh_jobs()
     printf("Searching processes array!\n");
 
     // end when the entry is null
-    // if (strcmp(processes[i].name,"") == 0)
-    // {
-    //  printf("Found null entry\n");
-    //  break;
-    // }
+    if (strcmp(processes[i].name, "") == 0)
+    {
+      printf("Found null entry\n");
+      break;
+    }
 
     // only print background jobs
     if (processes[i].fg == 0)
@@ -129,27 +129,23 @@ void run_fg_proc(char *file, int argc, char *argv[])
   else if (pid == 0)
   {
     struct proc curr_proc;
-    
+
     // populate process struct in processes array
     strcpy(curr_proc.name, file);
     curr_proc.argc = argc;
-    for (int i = 0; i<argc; i++) {
+    for (int i = 0; i < argc; i++)
+    {
       curr_proc.argv[i] = argv[i];
     }
     curr_proc.fg = 0;
     curr_proc.job_id = curr_id + 1;
-    
-    printf("name: %s, id: %d, fg?:%d\n", curr_proc.name, curr_proc.job_id, curr_proc.fg);
 
     processes[curr_id] = curr_proc;
-    
-    printf("PROCESS ARRAY: name: %s, id: %d, fg?:%d\n", processes[curr_id].name, processes[curr_id].job_id, processes[curr_id].fg);
 
     curr_id += 1;
-    
+
     // execute job
     execvp(file, argv);
-    exit(0);
   }
   // parent
   else if (pid > 0)
@@ -163,7 +159,8 @@ void run_bg_proc(char *file, int argc, char *argv[])
 {
 
   printf("running: %s\n", file);
-  for (int i = 0; i<argc; i++) {
+  for (int i = 0; i < argc; i++)
+  {
     printf("arg%d: %s\n", i, argv[i]);
   }
 
@@ -178,17 +175,17 @@ void run_bg_proc(char *file, int argc, char *argv[])
   // populate process struct in processes array
   struct proc curr_proc;
 
-  // populate process struct in processes array
   strcpy(curr_proc.name, file);
   curr_proc.argc = argc;
-  for (int i = 0; i<argc; i++) {
+  for (int i = 0; i < argc; i++)
+  {
     curr_proc.argv[i] = argv[i];
   }
   curr_proc.fg = 0;
   curr_proc.job_id = curr_id + 1;
 
   processes[curr_id] = curr_proc;
-  
+
   curr_id += 1;
 
   // execute job
@@ -199,11 +196,12 @@ void run_bg_proc(char *file, int argc, char *argv[])
 // run function for interactive mode
 int runi()
 {
-  // ignore CTRL-C and CTRL-Z
-  signal(SIGINT, SIG_IGN);
-  signal(SIGTSTP, SIG_IGN);
   while (true)
   {
+    // ignore CTRL-C and CTRL-Z
+    signal(SIGINT, SIG_IGN);
+    signal(SIGTSTP, SIG_IGN);
+
     printf("wsh> ");
 
     // collect user cmd
@@ -224,7 +222,7 @@ int runi()
 
     // TODO: check for pipe char and & char
     // TODO: I think we have to be able to handle both, so maybe create booleans to then handle these cases after command has been fully parsed
-    
+
     // parse command
     char tmp_cmd[256];
     strcpy(tmp_cmd, cmd);
