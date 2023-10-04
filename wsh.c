@@ -58,17 +58,15 @@ void wsh_jobs()
   // iterate over all possible entires in processes array
   for (int i = 0; i < 256; i++)
   {
-    printf("Searching processes array!\n");
-
     // end when the entry is null
     if (strcmp(processes[i].name, "") == 0)
     {
-      printf("Found null entry\n");
+      printf("Found null entry.\n");
       break;
     }
 
     // only print background jobs
-    if (processes[i].fg == 0)
+    if (processes[i].fg == 1)
     {
       printf("%d: ", processes[i].job_id);
       for (int j = 0; j < processes[i].argc; j++)
@@ -134,7 +132,7 @@ void run_fg_proc(char *file, int argc, char *argv[])
   processes[curr_id] = curr_proc;
 
   curr_id += 1;
-  
+
   int pid = fork();
   if (pid < 0)
   {
