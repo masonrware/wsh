@@ -17,10 +17,12 @@ struct proc
   int argc;
   // arg array
   char *argv[256];
-  // foreground bool
-  int fg;
   // proc name
   char name[256];
+  // foreground bool
+  int fg;
+  // running
+  int running;
 };
 
 // array of all processes
@@ -36,6 +38,7 @@ void wsh_exit()
 
 void wsh_cd(int argc, char *argv[])
 {
+  argc -= 1;
   if (argc != 2)
   {
     printf("USAGE: cd dir\n");
@@ -79,8 +82,10 @@ void wsh_jobs()
 }
 
 // TODO finish fg
+// fg should move a process from the background to the foreground
 void wsh_fg(int argc, char *argv[])
 {
+  argc -= 1;
   // id was provided
   if (argc == 2)
   {
@@ -97,8 +102,10 @@ void wsh_fg(int argc, char *argv[])
 }
 
 // TODO finish bg
+// bg should resume a process in the background - or run any suspended job in the background
 void wsh_bg(int argc, char *argv[])
 {
+  argc -= 1;
   // id was provided
   if (argc == 2)
   {
@@ -114,25 +121,11 @@ void wsh_bg(int argc, char *argv[])
   }
 }
 
+// TODO implement special function for multiple commands
+
 // helper functions
 void run_fg_proc(char *file, int argc, char *argv[])
 {
-  struct proc curr_proc;
-
-  // populate process struct in processes array
-  strcpy(curr_proc.name, file);
-  curr_proc.argc = argc;
-  for (int i = 0; i < argc; i++)
-  {
-    curr_proc.argv[i] = argv[i];
-  }
-  curr_proc.fg = 0;
-  curr_proc.job_id = curr_id + 1;
-
-  processes[curr_id] = curr_proc;
-
-  curr_id += 1;
-
   int pid = fork();
   if (pid < 0)
   {
@@ -142,26 +135,30 @@ void run_fg_proc(char *file, int argc, char *argv[])
   // child
   else if (pid == 0)
   {
+    // reset signal handlers to default
+    signal(SIGINT, SIG_DFL);
+    signal(SIGTSTP, SIG_DFL);
+
     // execute job
-    execvp(file, argv);
+    if(execvp(file, argv)==-1) {
+      printf("ERROR: execvp failed to run %s\n", file);
+    };
   }
   // parent
   else if (pid > 0)
   {
+
+    // TODO admin process groups?
+    // TODO set file descriptors accordingly... dup2() before forking
     wait(0);
+
+    // TODO handle everything after the fact (once the process is done running)
     printf("FROM PARENT: name: %s, id: %d, fg?:%d\n", processes[curr_id].name, processes[curr_id].job_id, processes[curr_id].fg);
   }
 }
 
 void run_bg_proc(char *file, int argc, char *argv[])
 {
-
-  printf("running: %s\n", file);
-  for (int i = 0; i < argc; i++)
-  {
-    printf("arg%d: %s\n", i, argv[i]);
-  }
-
   int pid = fork();
 
   if (pid < 0)
@@ -187,19 +184,21 @@ void run_bg_proc(char *file, int argc, char *argv[])
   curr_id += 1;
 
   // execute job
-  execvp(file, argv);
-  exit(0);
+  if(execvp(file, argv)==-1) {
+    printf("ERROR: execvp failed to run %s\n", file);
+  };
 }
 
 // run function for interactive mode
 int runi()
 {
+  // ignore CTRL-C and CTRL-Z
+  signal(SIGINT, SIG_IGN);
+  signal(SIGTSTP, SIG_IGN);
+  // TODO ignore other signals ...
+
   while (true)
   {
-    // ignore CTRL-C and CTRL-Z
-    signal(SIGINT, SIG_IGN);
-    signal(SIGTSTP, SIG_IGN);
-
     printf("wsh> ");
 
     // collect user cmd
@@ -218,8 +217,8 @@ int runi()
       cmd[strlen(cmd) - 1] = '\0';
     }
 
-    // TODO: check for pipe char and & char
-    // TODO: I think we have to be able to handle both, so maybe create booleans to then handle these cases after command has been fully parsed
+    int num_pipes = 0;
+    int bg = 0;
 
     // parse command
     char tmp_cmd[256];
@@ -240,42 +239,51 @@ int runi()
     cmd_seg = strtok(tmp_cmd, " ");
     for (int i = 0; i < cmd_argc; i++)
     {
+      if(i != cmd_argc-1 && strcmp(cmd_seg, "|") == 0) {
+        num_pipes += 1;
+      } else if (i != cmd_argc-1 && strcmp(cmd_seg, "&") == 0) {
+        bg = 1;
+      }
       cmd_argv[i] = cmd_seg;
       cmd_seg = strtok(NULL, " ");
     }
     // NULL terminate
     cmd_argv[cmd_argc] = NULL;
 
-    // exit
-    if (strcmp(cmd_argv[0], "exit") == 0)
-    {
-      wsh_exit();
-    }
-    // cd
-    else if (strcmp(cmd_argv[0], "cd") == 0)
-    {
-      wsh_cd(cmd_argc, cmd_argv);
-    }
-    // jobs
-    else if (strcmp(cmd_argv[0], "jobs") == 0)
-    {
-      wsh_jobs();
-    }
-    // fg
-    else if (strcmp(cmd_argv[0], "fg") == 0)
-    {
-      wsh_fg(cmd_argc, cmd_argv);
-    }
-    // bg
-    else if (strcmp(cmd_argv[0], "bg") == 0)
-    {
-      wsh_bg(cmd_argc, cmd_argv);
-    }
-    // search path
-    else
-    {
-      // run process in foreground
-      run_fg_proc(cmd_argv[0], cmd_argc, cmd_argv);
+    if (cmd_argc-1 > 0){
+      printf("Pipes: %d, BG: %d\n", num_pipes, bg);
+
+      // exit
+      if (strcmp(cmd_argv[0], "exit") == 0)
+      {
+        wsh_exit();
+      }
+      // cd
+      else if (strcmp(cmd_argv[0], "cd") == 0)
+      {
+        wsh_cd(cmd_argc, cmd_argv);
+      }
+      // jobs
+      else if (strcmp(cmd_argv[0], "jobs") == 0)
+      {
+        wsh_jobs();
+      }
+      // fg
+      else if (strcmp(cmd_argv[0], "fg") == 0)
+      {
+        wsh_fg(cmd_argc, cmd_argv);
+      }
+      // bg
+      else if (strcmp(cmd_argv[0], "bg") == 0)
+      {
+        wsh_bg(cmd_argc, cmd_argv);
+      }
+      // search path
+      else
+      {
+        // run process in foreground
+        run_fg_proc(cmd_argv[0], cmd_argc, cmd_argv);
+      }
     }
   }
   return 0;
