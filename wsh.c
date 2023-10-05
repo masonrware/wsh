@@ -19,8 +19,6 @@ struct proc
   char *argv[256];
   // proc name
   char name[256];
-  // foreground bool
-  int fg;
   // running
   int running;
 };
@@ -59,6 +57,7 @@ void wsh_cd(int argc, char *argv[])
 void wsh_jobs()
 {
   // iterate over all possible entires in processes array
+  // TODO print if not NULL??
   for (int i = 0; i < 256; i++)
   {
     // end when the entry is null
@@ -69,15 +68,12 @@ void wsh_jobs()
     }
 
     // only print background jobs
-    if (processes[i].fg == 1)
+    printf("%d: ", processes[i].job_id);
+    for (int j = 0; j < processes[i].argc; j++)
     {
-      printf("%d: ", processes[i].job_id);
-      for (int j = 0; j < processes[i].argc; j++)
-      {
-        printf("%s ", processes[i].argv[j]);
-      }
-      printf("\n");
+      printf("%s ", processes[i].argv[j]);
     }
+    printf("\n");
   }
 }
 
@@ -151,9 +147,8 @@ void run_fg_proc(char *file, int argc, char *argv[])
     // TODO admin process groups?
     // TODO set file descriptors accordingly... dup2() before forking
     wait(0);
-
-    // TODO handle everything after the fact (once the process is done running)
-    printf("FROM PARENT: name: %s, id: %d, fg?:%d\n", processes[curr_id].name, processes[curr_id].job_id, processes[curr_id].fg);
+    // TODO handle SIGCHLD -> handler to remove child from process array???
+    printf("FROM PARENT: name: %s, id: %d\n", processes[curr_id].name, processes[curr_id].job_id);
   }
 }
 
@@ -176,7 +171,6 @@ void run_bg_proc(char *file, int argc, char *argv[])
   {
     curr_proc.argv[i] = argv[i];
   }
-  curr_proc.fg = 0;
   curr_proc.job_id = curr_id + 1;
 
   processes[curr_id] = curr_proc;
@@ -192,10 +186,11 @@ void run_bg_proc(char *file, int argc, char *argv[])
 // run function for interactive mode
 int runi()
 {
-  // ignore CTRL-C and CTRL-Z
+  // ignore CTRL-C, CTRL-Z, and background processes trying to access terminal
   signal(SIGINT, SIG_IGN);
   signal(SIGTSTP, SIG_IGN);
-  // TODO ignore other signals ...
+  signal(SIGTTIN, SIG_IGN);
+  signal(SIGTTOU, SIG_IGN);
 
   while (true)
   {
@@ -252,7 +247,8 @@ int runi()
 
     if (cmd_argc-1 > 0){
       printf("Pipes: %d, BG: %d\n", num_pipes, bg);
-
+      // TODO handle bg process
+      // TODO handle pipe process
       // exit
       if (strcmp(cmd_argv[0], "exit") == 0)
       {
