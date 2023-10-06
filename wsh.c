@@ -129,6 +129,7 @@ void wsh_jobs()
   // TODO print if not NULL??
   for (j = first_job; j; j = j->next)
   {
+    printf("%d\n", j->pgid);
     for (p = j->first_process; p; p = p->next)
     {
       printf("%d\n", p->pid);
@@ -310,6 +311,8 @@ void launch_job(job *j, int foreground)
   process *p;
   pid_t pid;
   int mypipe[2], infile, outfile;
+  mypipe[0] = 0;
+  mypipe[1] = 1;
 
   infile = j->stdin;
   for (p = j->first_process; p; p = p->next)
@@ -444,6 +447,55 @@ void launch_job(job *j, int foreground)
 //   };
 // }
 
+void populate_process_struct(process *p, char *name, process *next, int argc, char *argv[], pid_t pid, char *status, int stdin, int stdout, int stderr)
+{
+    // allocate and set name
+    p->name = malloc(256);
+    strcpy(p->name, name);
+
+    // allocate and set next pointer (for piping)
+    p->next = (struct process *)malloc(sizeof(struct process));
+    p->next = next;
+
+    // allocate and set cmd args (for exec)
+    p->argv = malloc(sizeof(*argv) * argc);
+    for (int i = 0; i < argc - 1; i++)
+    {
+        p->argv[i] = strdup(argv[i]);
+    }
+    p->argv[argc] = NULL;
+
+    p->argc = argc;
+
+    // set pid
+    p->pid = pid;
+
+    // allocate and set status
+    p->status = malloc(256);
+    strcpy(p->status, status);
+
+    // set fds
+    p->stdin = 0;
+    p->stdout = 1;
+    p->stderr = 2;
+}
+
+void populate_job_struct(job *j, int job_id, process *fp, pid_t pgid, int foreground)
+{
+    // set job id
+    j->job_id = job_id;
+
+    // allocate and set first process in job
+    j->first_process = (struct process *)malloc(sizeof(struct process));
+    j->first_process = fp;
+
+    // set pgid
+    j->pgid = pgid;
+
+    // set foreground bool
+    j->foreground = foreground;
+}
+
 // run function for interactive mode
 int runi()
 {
@@ -530,17 +582,21 @@ int runi()
       // TODO handle pipe process
       if (bg)
       {
-        printf(">>>>bg<<<<%d\n", cmd_argc);
-        char *argv[256];
-        for (int i; i < cmd_argc - 1; i++)
-        {
-          argv[i] = cmd_argv[i];
-        }
-        argv[cmd_argc - 1] = NULL;
+        cmd_argv[cmd_argc - 2] = NULL;
+        cmd_argc -= 1;
 
-        process new_bg_proc = {.next = NULL, .argv = argv, .pid = getpid()};
-        job new_bg_job = {.next = NULL, .first_process = &new_bg_proc, .pgid = getpgid(getpid()), .stdin = 0, .stdout = 1, .stderr = 2};
-        launch_job(&new_bg_job, 1);
+        process *p = (struct process *)malloc(sizeof(struct process));
+        job *j = (struct job *)malloc(sizeof(struct job));
+
+        char *status = "running";
+
+        populate_process_struct(p, cmd_argv[0], NULL, cmd_argc, cmd_argv, 0, status, 0, 1, 2);
+        populate_job_struct(j, curr_id + 1, p, 0, 0);
+
+        jobs[curr_id] = j;
+        curr_id += 1;
+
+        run_bg_job(j);
       }
       else
       {
