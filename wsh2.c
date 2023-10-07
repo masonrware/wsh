@@ -26,6 +26,7 @@ typedef struct process
     char stopped;
     int status;
     char completed;
+    int dead;
 } process;
 
 typedef struct job
@@ -39,6 +40,7 @@ typedef struct job
     int foreground;
     int stdin, stdout, stderr; /* standard i/o channels */
     int job_id;
+    int dead;
 } job;
 
 // array of all processes
@@ -50,39 +52,6 @@ pid_t shell_pgid;
 int shell_terminal;
 
 /////
-
-int smallest_available_id()
-{
-    int smallest_available = 1;
-    int all_null = 1;
-
-    for (int i = 0; i < 256; i++)
-    {
-        if (jobs[i] != NULL && !(jobs[i]->job_id < smallest_available))
-        {
-            // found a non-null
-            if (all_null)
-                all_null = 0;
-            if (jobs[i]->job_id == smallest_available)
-            {
-                smallest_available += 1;
-                // break;
-            }
-            else
-            {
-                return smallest_available;
-                // break;
-            }
-        }
-    }
-    // all entries are null -> return 1
-    if (all_null)
-    {
-        return 1;
-    }
-
-    return smallest_available;
-}
 
 /* Return true if all processes in the job have stopped or completed.  */
 int job_is_stopped(job *j)
@@ -161,37 +130,9 @@ void wait_for_job(job *j)
     {
         pid = waitpid(j->pgid, &status, WUNTRACED);
     } while (!mark_process_status(pid, status) && !job_is_stopped(j) && !job_is_completed(j));
+
+    j->dead = 1;
 }
-
-void sigchld_handler(int signum)
-{
-    pid_t pid;
-    int status;
-
-    while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
-    {
-        for (int i = 0; i < 256; i++)
-        {
-            if (jobs[i] != NULL)
-            {
-                update_status();
-                // printf("process %d pid is dead\n", pid);
-                printf("%d %d %d\n", jobs[i]->job_id, job_is_completed(jobs[i]), job_is_stopped(jobs[i]));
-                // for (process *p = jobs[i]->first_process; p; p = p->next)
-                // {
-                //     if(p->pid == pid) {
-                //         printf("%s is dead\n", p->name);
-                //         printf("it belongs to job: %d\n", jobs[i]->job_id);
-
-                //         // TODO remove job from list - this isn't working?
-                //         printf("%d %d\n", job_is_completed(jobs[i]), job_is_stopped(jobs[i]));
-                //     }
-                // }
-            }
-        }
-    }
-}
-
 
 void put_job_in_foreground(job *j, int cont)
 {
@@ -208,7 +149,7 @@ void put_job_in_foreground(job *j, int cont)
 
     /* Wait for it to report.  */
     wait_for_job(j);
-    
+
     /* Put the shell back in the foreground.  */
     tcsetpgrp(shell_terminal, shell_pgid);
 
@@ -223,6 +164,72 @@ void put_job_in_background(job *j, int cont)
     if (cont)
         if (kill(-j->pgid, SIGCONT) < 0)
             perror("kill (SIGCONT)");
+}
+
+/////
+
+void sigchld_handler(int signum)
+{
+    pid_t pid;
+    int status;
+
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
+    {
+
+        for (int i = 0; i < 256; i++)
+        {
+            if (jobs[i] != NULL && (jobs[i]->dead == 0))
+            {
+                int all_dead = 1;
+                for (process *p = jobs[i]->first_process; p; p = p->next)
+                {
+                    if (p->pid == pid)
+                    {
+                        p->dead = 1;
+                    }
+                    if(p->dead == 0) {
+                        all_dead = 0;
+                    }
+                }
+                if(all_dead) {
+                    jobs[i]->dead = 1;
+                }
+            }
+        }
+    }
+}
+
+int smallest_available_id()
+{
+    int smallest_available = 1;
+    int all_null = 1;
+
+    for (int i = 0; i < 256; i++)
+    {
+        if (jobs[i] != NULL && (jobs[i]->dead == 0) && !(jobs[i]->job_id < smallest_available))
+        {
+            // found a non-null
+            if (all_null)
+                all_null = 0;
+            if (jobs[i]->job_id == smallest_available)
+            {
+                smallest_available += 1;
+                // break;
+            }
+            else
+            {
+                return smallest_available;
+                // break;
+            }
+        }
+    }
+    // all entries are null -> return 1
+    if (all_null)
+    {
+        return 1;
+    }
+
+    return smallest_available;
 }
 
 /////
@@ -257,7 +264,7 @@ void wsh_jobs()
 
     for (int i = 0; i < 256; i++)
     {
-        if (jobs[i] != NULL && jobs[i]->foreground == 0)
+        if (jobs[i] != NULL && (jobs[i]->dead == 0) && jobs[i]->foreground == 0)
         {
             printf("%d: ", jobs[i]->job_id);
             int num_proc = 0;
@@ -297,13 +304,14 @@ void wsh_fg(int argc, char *argv[])
     {
         for (int i = 0; i < 256; i++)
         {
-            if (jobs[i] != NULL && jobs[i]->job_id == atoi(argv[1])) {
+            if (jobs[i] != NULL && (jobs[i]->dead == 0) && jobs[i]->job_id == atoi(argv[1]))
+            {
                 /* Put the job into the foreground.  */
                 tcsetpgrp(shell_terminal, jobs[i]->pgid);
 
                 /* Wait for it to report.  */
                 wait_for_job(jobs[i]);
-                
+
                 /* Put the shell back in the foreground.  */
                 tcsetpgrp(shell_terminal, shell_pgid);
 
@@ -319,13 +327,14 @@ void wsh_fg(int argc, char *argv[])
     {
         for (int i = 0; i < 256; i++)
         {
-            if (jobs[i] != NULL) {
+            if (jobs[i] != NULL && (jobs[i]->dead == 0))
+            {
                 /* Put the job into the foreground.  */
                 tcsetpgrp(shell_terminal, jobs[i]->pgid);
 
                 /* Wait for it to report.  */
                 wait_for_job(jobs[i]);
-                
+
                 /* Put the shell back in the foreground.  */
                 tcsetpgrp(shell_terminal, shell_pgid);
 
@@ -353,7 +362,8 @@ void wsh_bg(int argc, char *argv[])
     {
         for (int i = 0; i < 256; i++)
         {
-            if (jobs[i] != NULL && jobs[i]->job_id == atoi(argv[1])) {
+            if (jobs[i] != NULL && (jobs[i]->dead == 0) && jobs[i]->job_id == atoi(argv[1]))
+            {
                 put_job_in_background(jobs[i], 1);
                 return;
             }
@@ -364,7 +374,8 @@ void wsh_bg(int argc, char *argv[])
     {
         for (int i = 0; i < 256; i++)
         {
-            if (jobs[i] != NULL) {
+            if (jobs[i] != NULL && (jobs[i]->dead == 0))
+            {
                 put_job_in_background(jobs[i], 1);
                 return;
             }
@@ -501,6 +512,8 @@ void populate_process_struct(process *p, char *name, process *next, int argc, ch
     p->argv[argc] = NULL;
 
     p->argc = argc;
+
+    p->dead = 0;
 }
 
 // pid_t pgid
@@ -516,6 +529,8 @@ void populate_job_struct(job *j, process *fp, int foreground)
     j->foreground = foreground;
 
     j->job_id = smallest_available_id();
+
+    j->dead = 0;
 
     // set fds
     j->stdin = 0;
