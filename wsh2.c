@@ -1,7 +1,5 @@
 // TODOS:
-// TODO1: finish fg (line 118)
 // TODO2: finish bg (line 138)
-// TODO3: remove job from list - this isn't working? (line 288)
 // TODO4: handle piped processes (line 561)
 // TODO5: run function for batch mode (line 628)
 
@@ -50,110 +48,6 @@ int curr_id = 0;
 struct termios shell_tmodes;
 pid_t shell_pgid;
 int shell_terminal;
-
-/////
-
-// built-in commands
-void wsh_exit()
-{
-    exit(0);
-}
-
-void wsh_cd(int argc, char *argv[])
-{
-    argc -= 1;
-    if (argc != 2)
-    {
-        printf("USAGE: cd dir\n");
-    }
-    else
-    {
-        // change directories
-        if (chdir(argv[1]) != 0)
-        {
-            printf("Error: chdir to %s failed.\n", argv[1]);
-        }
-    }
-}
-
-// <id>: <program name> <arg1> <arg2> … <argN> [&]
-void wsh_jobs()
-{
-    process *p;
-
-    for (int i = 0; i < 256; i++)
-    {
-        if (jobs[i] != NULL && jobs[i]->foreground == 0)
-        {
-            printf("%d: ", jobs[i]->job_id);
-
-            int num_proc = 0;
-            for (p = jobs[i]->first_process; p; p = p->next)
-            {
-                if (num_proc == 0)
-                {
-                    printf("%s ", p->name);
-                    for (int i = 1; i < p->argc - 1; i++)
-                    {
-                        printf("%s ", p->argv[i]);
-                    }
-                    num_proc += 1;
-                }
-                else
-                {
-                    printf("| ");
-                    printf("%s ", p->name);
-                    for (int i = 1; i < p->argc - 1; i++)
-                    {
-                        printf("%s ", p->argv[i]);
-                    }
-                }
-            }
-            printf("& ");
-            printf("\n");
-        }
-    }
-}
-
-// TODO finish fg
-// fg should move a process from the background to the foreground
-void wsh_fg(int argc, char *argv[])
-{
-    argc -= 1;
-    // id was provided
-    if (argc == 2)
-    {
-    }
-    // use most recent id
-    else if (argc == 1)
-    {
-    }
-    else
-    {
-        printf("USAGE: fg [job_id]\n");
-        // wsh_exit();
-    }
-}
-
-// TODO finish bg
-// bg should resume a process in the background - or run any suspended job in the background
-void wsh_bg(int argc, char *argv[])
-{
-    argc -= 1;
-    // id was provided
-    if (argc == 2)
-    {
-    }
-    // use most recent id
-    else if (argc == 1)
-    {
-    }
-    else
-    {
-        printf("USAGE: fg [job_id]\n");
-        // wsh_exit();
-    }
-}
 
 /////
 
@@ -269,30 +163,221 @@ void wait_for_job(job *j)
     } while (!mark_process_status(pid, status) && !job_is_stopped(j) && !job_is_completed(j));
 }
 
-void sigchld_handler(int signum)
-{
-    pid_t pid;
-    int status;
+// void sigchld_handler(int signum)
+// {
+//     pid_t pid;
+//     int status;
 
-    while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
+//     while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
+//     {
+//         for (int i = 0; i < 256; i++)
+//         {
+//             if (jobs[i] != NULL)
+//             {
+//                 update_status();
+//                 // printf("process %d pid is dead\n", pid);
+//                 printf("%d %d %d\n", jobs[i]->job_id, job_is_completed(jobs[i]), job_is_stopped(jobs[i]));
+//                 // for (process *p = jobs[i]->first_process; p; p = p->next)
+//                 // {
+//                 //     if(p->pid == pid) {
+//                 //         printf("%s is dead\n", p->name);
+//                 //         printf("it belongs to job: %d\n", jobs[i]->job_id);
+
+//                 //         // TODO remove job from list - this isn't working?
+//                 //         printf("%d %d\n", job_is_completed(jobs[i]), job_is_stopped(jobs[i]));
+//                 //     }
+//                 // }
+//             }
+//         }
+//     }
+// }
+
+
+void put_job_in_foreground(job *j, int cont)
+{
+    /* Put the job into the foreground.  */
+    tcsetpgrp(shell_terminal, j->pgid);
+
+    /* Send the job a continue signal, if necessary.  */
+    if (cont)
     {
-        for (int i = 0; i < 256; i++)
+        tcsetattr(shell_terminal, TCSADRAIN, &j->tmodes);
+        if (kill(-j->pgid, SIGCONT) < 0)
+            perror("kill (SIGCONT)");
+    }
+
+    /* Wait for it to report.  */
+    wait_for_job(j);
+    
+    /* Put the shell back in the foreground.  */
+    tcsetpgrp(shell_terminal, shell_pgid);
+
+    /* Restore the shell’s terminal modes.  */
+    tcgetattr(shell_terminal, &j->tmodes);
+    tcsetattr(shell_terminal, TCSADRAIN, &shell_tmodes);
+}
+
+void put_job_in_background(job *j, int cont)
+{
+    /* Send the job a continue signal, if necessary.  */
+    if (cont)
+        if (kill(-j->pgid, SIGCONT) < 0)
+            perror("kill (SIGCONT)");
+}
+
+/////
+
+// built-in commands
+void wsh_exit()
+{
+    exit(0);
+}
+
+void wsh_cd(int argc, char *argv[])
+{
+    argc -= 1;
+    if (argc != 2)
+    {
+        printf("USAGE: cd dir\n");
+    }
+    else
+    {
+        // change directories
+        if (chdir(argv[1]) != 0)
         {
-            if (jobs[i] != NULL)
-            {
-                for (process *p = jobs[i]->first_process; p; p = p->next)
-                {
-                    if(p->pid == pid) {
-                        printf("%s is dead\n", p->name);
-                        printf("it belongs to job: %d\n", jobs[i]->job_id);
-                        // TODO remove job from list - this isn't working?
-                        printf("%d %d\n", job_is_completed(jobs[i]), job_is_stopped(jobs[i]));
-                    }
-                }
-            }
+            printf("Error: chdir to %s failed.\n", argv[1]);
         }
     }
 }
+
+// <id>: <program name> <arg1> <arg2> … <argN> [&]
+void wsh_jobs()
+{
+    process *p;
+
+    for (int i = 0; i < 256; i++)
+    {
+        if (jobs[i] != NULL && jobs[i]->foreground == 0)
+        {
+            printf("%d: ", jobs[i]->job_id);
+            int num_proc = 0;
+            for (p = jobs[i]->first_process; p; p = p->next)
+            {
+                if (num_proc == 0)
+                {
+                    printf("%s ", p->name);
+                    for (int i = 1; i < p->argc - 1; i++)
+                    {
+                        printf("%s ", p->argv[i]);
+                    }
+                    num_proc += 1;
+                }
+                else
+                {
+                    printf("| ");
+                    printf("%s ", p->name);
+                    for (int i = 1; i < p->argc - 1; i++)
+                    {
+                        printf("%s ", p->argv[i]);
+                    }
+                }
+            }
+            printf("& ");
+            printf("\n");
+        }
+    }
+}
+
+// fg should move a process from the background to the foreground
+void wsh_fg(int argc, char *argv[])
+{
+    argc -= 1;
+    // id was provided
+    if (argc == 2)
+    {
+        for (int i = 0; i < 256; i++)
+        {
+            if (jobs[i] != NULL && jobs[i]->job_id == atoi(argv[1])) {
+                /* Put the job into the foreground.  */
+                tcsetpgrp(shell_terminal, jobs[i]->pgid);
+
+                /* Wait for it to report.  */
+                wait_for_job(jobs[i]);
+                
+                /* Put the shell back in the foreground.  */
+                tcsetpgrp(shell_terminal, shell_pgid);
+
+                /* Restore the shell’s terminal modes.  */
+                tcgetattr(shell_terminal, &jobs[i]->tmodes);
+                tcsetattr(shell_terminal, TCSADRAIN, &shell_tmodes);
+                return;
+            }
+        }
+    }
+    // use most recent id
+    else if (argc == 1)
+    {
+        for (int i = 0; i < 256; i++)
+        {
+            if (jobs[i] != NULL) {
+                /* Put the job into the foreground.  */
+                tcsetpgrp(shell_terminal, jobs[i]->pgid);
+
+                /* Wait for it to report.  */
+                wait_for_job(jobs[i]);
+                
+                /* Put the shell back in the foreground.  */
+                tcsetpgrp(shell_terminal, shell_pgid);
+
+                /* Restore the shell’s terminal modes.  */
+                tcgetattr(shell_terminal, &jobs[i]->tmodes);
+                tcsetattr(shell_terminal, TCSADRAIN, &shell_tmodes);
+                return;
+            }
+        }
+    }
+    else
+    {
+        printf("USAGE: fg [job_id]\n");
+        // wsh_exit();
+    }
+}
+
+// TODO finish bg
+// bg should resume a process in the background - or run any suspended job in the background
+void wsh_bg(int argc, char *argv[])
+{
+    argc -= 1;
+    // id was provided
+    if (argc == 2)
+    {
+        for (int i = 0; i < 256; i++)
+        {
+            if (jobs[i] != NULL && jobs[i]->job_id == atoi(argv[1])) {
+                put_job_in_background(jobs[i], 1);
+                return;
+            }
+        }
+    }
+    // use most recent id
+    else if (argc == 1)
+    {
+        for (int i = 0; i < 256; i++)
+        {
+            if (jobs[i] != NULL) {
+                put_job_in_background(jobs[i], 1);
+                return;
+            }
+        }
+    }
+    else
+    {
+        printf("USAGE: fg [job_id]\n");
+        // wsh_exit();
+    }
+}
+
+/////
 
 void launch_process(process *p, pid_t pgid,
                     int infile, int outfile, int errfile,
@@ -333,38 +418,6 @@ void launch_process(process *p, pid_t pgid,
     execvp(p->argv[0], p->argv);
     perror("execvp");
     exit(1);
-}
-
-void put_job_in_foreground(job *j, int cont)
-{
-    /* Put the job into the foreground.  */
-    tcsetpgrp(shell_terminal, j->pgid);
-
-    /* Send the job a continue signal, if necessary.  */
-    if (cont)
-    {
-        tcsetattr(shell_terminal, TCSADRAIN, &j->tmodes);
-        if (kill(-j->pgid, SIGCONT) < 0)
-            perror("kill (SIGCONT)");
-    }
-
-    /* Wait for it to report.  */
-    wait_for_job(j);
-
-    /* Put the shell back in the foreground.  */
-    tcsetpgrp(shell_terminal, shell_pgid);
-
-    /* Restore the shell’s terminal modes.  */
-    tcgetattr(shell_terminal, &j->tmodes);
-    tcsetattr(shell_terminal, TCSADRAIN, &shell_tmodes);
-}
-
-void put_job_in_background(job *j, int cont)
-{
-    /* Send the job a continue signal, if necessary.  */
-    if (cont)
-        if (kill(-j->pgid, SIGCONT) < 0)
-            perror("kill (SIGCONT)");
 }
 
 void run_job(job *j, int foreground)
@@ -427,6 +480,8 @@ void run_job(job *j, int foreground)
         put_job_in_background(j, 0);
 }
 
+/////
+
 void populate_process_struct(process *p, char *name, process *next, int argc, char *argv[])
 {
     // allocate and set name
@@ -468,6 +523,8 @@ void populate_job_struct(job *j, process *fp, int foreground)
     j->stderr = 2;
 }
 
+/////
+
 // run function for interactive mode
 int runi()
 {
@@ -483,8 +540,8 @@ int runi()
     signal(SIGTTIN, SIG_IGN);
     signal(SIGTTOU, SIG_IGN);
     signal(SIGQUIT, SIG_IGN);
-    signal(SIGCHLD, sigchld_handler);
-    // signal(SIGCHLD, SIG_IGN);
+    // signal(SIGCHLD, sigchld_handler);
+    signal(SIGCHLD, SIG_IGN);
 
     // Put ourselves in our own process group
     shell_pgid = getpid();
@@ -603,7 +660,7 @@ int runi()
                 {
                     wsh_bg(cmd_argc, cmd_argv);
                 }
-                // run child process/job
+                // run fg child process/job
                 else
                 {
                     // run process in a job in the foreground
@@ -612,7 +669,6 @@ int runi()
 
                     populate_process_struct(p, cmd_argv[0], NULL, cmd_argc, cmd_argv);
                     populate_job_struct(j, p, 1);
-                    // populate_job_struct(j, p, 1, getpgid(getpid()));
 
                     jobs[curr_id] = j;
                     curr_id = curr_id + 1;
@@ -631,6 +687,8 @@ int runb(char *batch_file)
     // open batch file and iterate over it
     return 0;
 }
+
+/////
 
 int main(int argc, char **argv)
 {
