@@ -163,34 +163,34 @@ void wait_for_job(job *j)
     } while (!mark_process_status(pid, status) && !job_is_stopped(j) && !job_is_completed(j));
 }
 
-// void sigchld_handler(int signum)
-// {
-//     pid_t pid;
-//     int status;
+void sigchld_handler(int signum)
+{
+    pid_t pid;
+    int status;
 
-//     while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
-//     {
-//         for (int i = 0; i < 256; i++)
-//         {
-//             if (jobs[i] != NULL)
-//             {
-//                 update_status();
-//                 // printf("process %d pid is dead\n", pid);
-//                 printf("%d %d %d\n", jobs[i]->job_id, job_is_completed(jobs[i]), job_is_stopped(jobs[i]));
-//                 // for (process *p = jobs[i]->first_process; p; p = p->next)
-//                 // {
-//                 //     if(p->pid == pid) {
-//                 //         printf("%s is dead\n", p->name);
-//                 //         printf("it belongs to job: %d\n", jobs[i]->job_id);
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
+    {
+        for (int i = 0; i < 256; i++)
+        {
+            if (jobs[i] != NULL)
+            {
+                update_status();
+                // printf("process %d pid is dead\n", pid);
+                printf("%d %d %d\n", jobs[i]->job_id, job_is_completed(jobs[i]), job_is_stopped(jobs[i]));
+                // for (process *p = jobs[i]->first_process; p; p = p->next)
+                // {
+                //     if(p->pid == pid) {
+                //         printf("%s is dead\n", p->name);
+                //         printf("it belongs to job: %d\n", jobs[i]->job_id);
 
-//                 //         // TODO remove job from list - this isn't working?
-//                 //         printf("%d %d\n", job_is_completed(jobs[i]), job_is_stopped(jobs[i]));
-//                 //     }
-//                 // }
-//             }
-//         }
-//     }
-// }
+                //         // TODO remove job from list - this isn't working?
+                //         printf("%d %d\n", job_is_completed(jobs[i]), job_is_stopped(jobs[i]));
+                //     }
+                // }
+            }
+        }
+    }
+}
 
 
 void put_job_in_foreground(job *j, int cont)
@@ -540,8 +540,8 @@ int runi()
     signal(SIGTTIN, SIG_IGN);
     signal(SIGTTOU, SIG_IGN);
     signal(SIGQUIT, SIG_IGN);
-    // signal(SIGCHLD, sigchld_handler);
-    signal(SIGCHLD, SIG_IGN);
+    signal(SIGCHLD, sigchld_handler);
+    // signal(SIGCHLD, SIG_IGN);
 
     // Put ourselves in our own process group
     shell_pgid = getpid();
