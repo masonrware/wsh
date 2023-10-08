@@ -187,11 +187,13 @@ void sigchld_handler(int signum)
                     {
                         p->dead = 1;
                     }
-                    if(p->dead == 0) {
+                    if (p->dead == 0)
+                    {
                         all_dead = 0;
                     }
                 }
-                if(all_dead) {
+                if (all_dead)
+                {
                     jobs[i]->dead = 1;
                 }
             }
@@ -231,6 +233,7 @@ int smallest_available_id()
 
     return smallest_available;
 }
+
 
 /////
 
@@ -408,22 +411,23 @@ void launch_process(process *p, pid_t pgid,
     signal(SIGTTIN, SIG_DFL);
     signal(SIGTTOU, SIG_DFL);
     signal(SIGCHLD, SIG_DFL);
+    
     /* Set the standard input/output channels of the new process.  */
-    // if (infile != STDIN_FILENO)
-    //     {
-    //     dup2 (infile, STDIN_FILENO);
-    //     close (infile);
-    //     }
-    // if (outfile != STDOUT_FILENO)
-    //     {
-    //     dup2 (outfile, STDOUT_FILENO);
-    //     close (outfile);
-    //     }
-    // if (errfile != STDERR_FILENO)
-    //     {
-    //     dup2 (errfile, STDERR_FILENO);
-    //     close (errfile);
-    //     }
+    if (infile != STDIN_FILENO)
+        {
+        dup2 (infile, STDIN_FILENO);
+        close (infile);
+        }
+    if (outfile != STDOUT_FILENO)
+        {
+        dup2 (outfile, STDOUT_FILENO);
+        close (outfile);
+        }
+    if (errfile != STDERR_FILENO)
+        {
+        dup2 (errfile, STDERR_FILENO);
+        close (errfile);
+        }
 
     /* Exec the new process.  Make sure we exit.  */
     execvp(p->argv[0], p->argv);
@@ -435,24 +439,23 @@ void run_job(job *j, int foreground)
 {
     process *p;
     pid_t pid;
-    // int mypipe[2], infile, outfile;
+    int mypipe[2], infile, outfile;
 
-    int infile = j->stdin;
-    int outfile = j->stdout;
+    infile = j->stdin;
     for (p = j->first_process; p; p = p->next)
     {
         /* Set up pipes, if necessary.  */
-        // if (p->next)
-        //     {
-        //     if (pipe (mypipe) < 0)
-        //         {
-        //         perror ("pipe");
-        //         exit (1);
-        //         }
-        //     outfile = mypipe[1];
-        //     }
-        // else
-        //     outfile = j->stdout;
+        if (p->next)
+        {
+            if (pipe(mypipe) < 0)
+            {
+                perror("pipe");
+                exit(1);
+            }
+            outfile = mypipe[1];
+        }
+        else
+            outfile = j->stdout;
 
         /* Fork the child processes.  */
         pid = fork();
@@ -478,11 +481,11 @@ void run_job(job *j, int foreground)
         }
 
         /* Clean up after pipes.  */
-        // if (infile != j->stdin)
-        //     close (infile);
-        // if (outfile != j->stdout)
-        //     close (outfile);
-        // infile = mypipe[0];
+        if (infile != j->stdin)
+            close (infile);
+        if (outfile != j->stdout)
+            close (outfile);
+        infile = mypipe[0];
     }
 
     if (foreground)
@@ -631,64 +634,143 @@ int runi()
         if (cmd_argc - 1 > 0)
         {
             // TODO handle piped processes
-            if (bg)
-            {
-                cmd_argv[cmd_argc - 2] = NULL;
-                cmd_argc -= 1;
+            if(num_pipes > 0) {
+                if (bg)
+                {
+                    cmd_argv[cmd_argc - 2] = NULL;
+                    cmd_argc -= 1;
 
-                process *p = (struct process *)malloc(sizeof(struct process));
-                job *j = (struct job *)malloc(sizeof(struct job));
+                    int tmp_argc = cmd_argc-2;
+                    int num_itr = 0;
 
-                populate_process_struct(p, cmd_argv[0], NULL, cmd_argc, cmd_argv);
-                populate_job_struct(j, p, 0);
-                // populate_job_struct(j, p, 0, getpgid(getpid()));
+                    while (num_itr != num_pipes+1) {
+                        char *tmp_argv[256];
+                        int idx = 0;
+                        for (int i = tmp_argc; i >= 0; i--) {
+                            tmp_argc -= 1;
 
-                jobs[curr_id] = j;
-                curr_id += 1;
+                            if(strcmp(cmd_argv[i], "|") == 0) {
+                                break;
+                            }
 
-                run_job(j, 0);
-            }
-            else
-            {
-                // exit
-                if (strcmp(cmd_argv[0], "exit") == 0)
-                {
-                    wsh_exit();
-                }
-                // cd
-                else if (strcmp(cmd_argv[0], "cd") == 0)
-                {
-                    wsh_cd(cmd_argc, cmd_argv);
-                }
-                // jobs
-                else if (strcmp(cmd_argv[0], "jobs") == 0)
-                {
-                    wsh_jobs();
-                }
-                // fg
-                else if (strcmp(cmd_argv[0], "fg") == 0)
-                {
-                    wsh_fg(cmd_argc, cmd_argv);
-                }
-                // bg
-                else if (strcmp(cmd_argv[0], "bg") == 0)
-                {
-                    wsh_bg(cmd_argc, cmd_argv);
-                }
-                // run fg child process/job
-                else
-                {
+                            tmp_argv[idx] = cmd_argv[i];
+                            idx+=1;
+                        }
+                        for(int i = 0; i<idx; i++) {
+                            printf("%s\n", tmp_argv[i]);
+                        }
+                        num_itr+=1;
+                    }
+
+                    // process *p = (struct process *)malloc(sizeof(struct process));
+                    // job *j = (struct job *)malloc(sizeof(struct job));
+
+                    // for(int i = 0; i <= num_pipes; i++) {
+                    // }
+
+                    // populate_process_struct(p, cmd_argv[0], NULL, cmd_argc, cmd_argv);
+                    // populate_job_struct(j, p, 0);
+                    // // populate_job_struct(j, p, 0, getpgid(getpid()));
+
+                    // jobs[curr_id] = j;
+                    // curr_id += 1;
+
+                    // run_job(j, 0);
+                } else {
+                    int tmp_argc = cmd_argc-2;
+                    int num_itr = 0;
+
+                    while (num_itr != num_pipes+1) {
+                        char *tmp_argv[256];
+                        int idx = 0;
+                        for (int i = tmp_argc; i >= 0; i--) {
+                            tmp_argc -= 1;
+
+                            if(strcmp(cmd_argv[i], "|") == 0) {
+                                break;
+                            }
+                            
+                            tmp_argv[idx] = cmd_argv[i];
+                            idx+=1;
+                        }
+                        for(int i = 0; i<idx; i++) {
+                            printf("%s\n", tmp_argv[i]);
+                        }
+
+                        num_itr+=1;
+                    }
                     // run process in a job in the foreground
+                    // process *p = (struct process *)malloc(sizeof(struct process));
+                    // job *j = (struct job *)malloc(sizeof(struct job));
+
+                    // populate_process_struct(p, cmd_argv[0], NULL, cmd_argc, cmd_argv);
+                    // populate_job_struct(j, p, 1);
+
+                    // jobs[curr_id] = j;
+                    // curr_id = curr_id + 1;
+
+                    // run_job(j, 1);
+                }
+            } else {
+                if (bg)
+                {
+                    cmd_argv[cmd_argc - 2] = NULL;
+                    cmd_argc -= 1;
+
                     process *p = (struct process *)malloc(sizeof(struct process));
                     job *j = (struct job *)malloc(sizeof(struct job));
 
                     populate_process_struct(p, cmd_argv[0], NULL, cmd_argc, cmd_argv);
-                    populate_job_struct(j, p, 1);
+                    populate_job_struct(j, p, 0);
+                    // populate_job_struct(j, p, 0, getpgid(getpid()));
 
                     jobs[curr_id] = j;
-                    curr_id = curr_id + 1;
+                    curr_id += 1;
 
-                    run_job(j, 1);
+                    run_job(j, 0);
+                }
+                else
+                {
+                    // exit
+                    if (strcmp(cmd_argv[0], "exit") == 0)
+                    {
+                        wsh_exit();
+                    }
+                    // cd
+                    else if (strcmp(cmd_argv[0], "cd") == 0)
+                    {
+                        wsh_cd(cmd_argc, cmd_argv);
+                    }
+                    // jobs
+                    else if (strcmp(cmd_argv[0], "jobs") == 0)
+                    {
+                        wsh_jobs();
+                    }
+                    // fg
+                    else if (strcmp(cmd_argv[0], "fg") == 0)
+                    {
+                        wsh_fg(cmd_argc, cmd_argv);
+                    }
+                    // bg
+                    else if (strcmp(cmd_argv[0], "bg") == 0)
+                    {
+                        wsh_bg(cmd_argc, cmd_argv);
+                    }
+                    // run fg child process/job
+                    else
+                    {
+                        // run process in a job in the foreground
+                        process *p = (struct process *)malloc(sizeof(struct process));
+                        job *j = (struct job *)malloc(sizeof(struct job));
+
+                        populate_process_struct(p, cmd_argv[0], NULL, cmd_argc, cmd_argv);
+                        populate_job_struct(j, p, 1);
+
+                        jobs[curr_id] = j;
+                        curr_id = curr_id + 1;
+
+                        run_job(j, 1);
+                    }
                 }
             }
         }
