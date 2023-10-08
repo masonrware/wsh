@@ -261,6 +261,16 @@ int get_largest_id()
     return largest_id;
 }
 
+void reverse_array(char *arr[], int n) {
+    char *temp;
+    for(int i = 0; i<n/2; i++){
+        temp = arr[i];
+        arr[i] = arr[n-i-1];
+        arr[n-i-1] = temp;
+    }
+    arr[n] = NULL;
+}
+
 /////
 
 // built-in commands
@@ -668,7 +678,7 @@ int runi()
 
         if (cmd_argc - 1 > 0)
         {
-            // TODO handle piped processes
+            // TODO finish implementing piping
             if(num_pipes > 0) {
                 if (bg)
                 {
@@ -678,6 +688,9 @@ int runi()
                     int tmp_argc = cmd_argc-2;
                     int num_itr = 0;
 
+                    process *prev_p = (struct process *)malloc(sizeof(struct process));
+                    process *first_p = (struct process *)malloc(sizeof(struct process));
+                    
                     while (num_itr != num_pipes+1) {
                         char *tmp_argv[256];
                         int idx = 0;
@@ -691,30 +704,43 @@ int runi()
                             tmp_argv[idx] = cmd_argv[i];
                             idx+=1;
                         }
-                        for(int i = 0; i<idx; i++) {
-                            printf("%s\n", tmp_argv[i]);
+                        reverse_array(tmp_argv, idx);
+                        
+                        // TODO error lies somewhere in the below when we do the job-process-process-... linkage
+                        if(num_itr == 0) {
+                            populate_process_struct(prev_p, cmd_argv[0], NULL, cmd_argc, cmd_argv);
+                        } else {
+                            process *p = (struct process *)malloc(sizeof(struct process));
+                            populate_process_struct(prev_p, cmd_argv[0], prev_p, cmd_argc, cmd_argv);
+                            if (num_itr == num_pipes) {
+                                first_p = p;
+                            }
                         }
+                        
                         num_itr+=1;
                     }
 
                     // process *p = (struct process *)malloc(sizeof(struct process));
-                    // job *j = (struct job *)malloc(sizeof(struct job));
+                    job *j = (struct job *)malloc(sizeof(struct job));
 
                     // for(int i = 0; i <= num_pipes; i++) {
                     // }
 
                     // populate_process_struct(p, cmd_argv[0], NULL, cmd_argc, cmd_argv);
-                    // populate_job_struct(j, p, 0);
+                    populate_job_struct(j, first_p, 0);
                     // // populate_job_struct(j, p, 0, getpgid(getpid()));
 
-                    // jobs[curr_id] = j;
-                    // curr_id += 1;
+                    jobs[curr_id] = j;
+                    curr_id += 1;
 
-                    // run_job(j, 0);
+                    run_job(j, 0);
                 } else {
                     int tmp_argc = cmd_argc-2;
                     int num_itr = 0;
 
+                    process *prev_p = (struct process *)malloc(sizeof(struct process));
+                    process *first_p = (struct process *)malloc(sizeof(struct process));
+                    
                     while (num_itr != num_pipes+1) {
                         char *tmp_argv[256];
                         int idx = 0;
@@ -724,27 +750,36 @@ int runi()
                             if(strcmp(cmd_argv[i], "|") == 0) {
                                 break;
                             }
-                            
+
                             tmp_argv[idx] = cmd_argv[i];
                             idx+=1;
                         }
-                        for(int i = 0; i<idx; i++) {
-                            printf("%s\n", tmp_argv[i]);
+                        reverse_array(tmp_argv, idx);
+                        
+                        // TODO error lies somewhere in the below when we do the job-process-process-... linkage
+                        if(num_itr == 0) {
+                            populate_process_struct(prev_p, cmd_argv[0], NULL, cmd_argc, cmd_argv);
+                        } else {
+                            process *p = (struct process *)malloc(sizeof(struct process));
+                            populate_process_struct(prev_p, cmd_argv[0], prev_p, cmd_argc, cmd_argv);
+                            if (num_itr == num_pipes) {
+                                first_p = p;
+                            }
                         }
-
+                        
                         num_itr+=1;
                     }
                     // run process in a job in the foreground
                     // process *p = (struct process *)malloc(sizeof(struct process));
-                    // job *j = (struct job *)malloc(sizeof(struct job));
+                    job *j = (struct job *)malloc(sizeof(struct job));
 
                     // populate_process_struct(p, cmd_argv[0], NULL, cmd_argc, cmd_argv);
-                    // populate_job_struct(j, p, 1);
+                    populate_job_struct(j, first_p, 1);
 
                     // jobs[curr_id] = j;
                     // curr_id = curr_id + 1;
 
-                    // run_job(j, 1);
+                    run_job(j, 1);
                 }
             } else {
                 if (bg)
