@@ -232,6 +232,33 @@ int smallest_available_id()
     return smallest_available;
 }
 
+int get_largest_id()
+{
+    int largest_id = 0;
+    int all_null = 1;
+
+    for (int i = 0; i < 256; i++)
+    {
+        if (jobs[i] != NULL && (jobs[i]->dead == 0))
+        {
+            // found a non-null
+            if (all_null)
+                all_null = 0;
+            if (jobs[i]->job_id > largest_id)
+            {
+                largest_id = jobs[i]->job_id;
+            }
+        }
+    }
+    // all entries are null -> return 1
+    if (all_null)
+    {
+        return 1;
+    }
+
+    return largest_id;
+}
+
 /////
 
 // built-in commands
@@ -262,36 +289,45 @@ void wsh_jobs()
 {
     process *p;
 
-    for (int i = 0; i < 256; i++)
-    {
-        if (jobs[i] != NULL && (jobs[i]->dead == 0) && jobs[i]->foreground == 0)
+    int largest_id = get_largest_id();
+    int local_job_id = 1;
+
+    while(local_job_id <= largest_id) {
+        for (int i = 0; i < 256; i++)
         {
-            printf("%d: ", jobs[i]->job_id);
-            int num_proc = 0;
-            for (p = jobs[i]->first_process; p; p = p->next)
+            if (jobs[i] != NULL && (jobs[i]->dead == 0) && jobs[i]->foreground == 0)
             {
-                if (num_proc == 0)
-                {
-                    printf("%s ", p->name);
-                    for (int i = 1; i < p->argc - 1; i++)
+                if(jobs[i]->job_id == local_job_id) {
+                    printf("%d: ", jobs[i]->job_id);
+                    int num_proc = 0;
+                    for (p = jobs[i]->first_process; p; p = p->next)
                     {
-                        printf("%s ", p->argv[i]);
+                        if (num_proc == 0)
+                        {
+                            printf("%s ", p->name);
+                            for (int i = 1; i < p->argc - 1; i++)
+                            {
+                                printf("%s ", p->argv[i]);
+                            }
+                            num_proc += 1;
+                        }
+                        else
+                        {
+                            printf("| ");
+                            printf("%s ", p->name);
+                            for (int i = 1; i < p->argc - 1; i++)
+                            {
+                                printf("%s ", p->argv[i]);
+                            }
+                        }
                     }
-                    num_proc += 1;
-                }
-                else
-                {
-                    printf("| ");
-                    printf("%s ", p->name);
-                    for (int i = 1; i < p->argc - 1; i++)
-                    {
-                        printf("%s ", p->argv[i]);
-                    }
+                    printf("& ");
+                    printf("\n");
+                    break;
                 }
             }
-            printf("& ");
-            printf("\n");
         }
+        local_job_id += 1;
     }
 }
 
