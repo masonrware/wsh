@@ -127,12 +127,15 @@ void wait_for_job(job *j)
     int status;
     pid_t pid;
 
-    if(j->piped) {
+    if (j->piped)
+    {
         do
         {
             pid = waitpid(WAIT_ANY, &status, WUNTRACED);
         } while (!mark_process_status(pid, status) && !job_is_stopped(j) && !job_is_completed(j));
-    } else {
+    }
+    else
+    {
         do
         {
             pid = waitpid(j->pgid, &status, WUNTRACED);
@@ -565,7 +568,8 @@ void populate_process_struct(process *p, char *name, process *next, int argc, ch
     p->next = next;
 
     // only do this on pipes
-    if(pipe) {
+    if (pipe)
+    {
         argc += 1;
     }
 
@@ -708,7 +712,7 @@ int runi()
 
                     int tmp_argc = cmd_argc - 2;
                     int num_itr = 0;
-        
+
                     process *prev_p = (struct process *)malloc(sizeof(struct process));
                     process *first_p = (struct process *)malloc(sizeof(struct process));
 
@@ -763,7 +767,7 @@ int runi()
                 {
                     int tmp_argc = cmd_argc - 2;
                     int num_itr = 0;
-        
+
                     process *prev_p = (struct process *)malloc(sizeof(struct process));
                     process *first_p = (struct process *)malloc(sizeof(struct process));
 
@@ -883,10 +887,272 @@ int runi()
     return 0;
 }
 
-// TODO: run function for batch mode
 int runb(char *batch_file)
 {
-    // open batch file and iterate over it
+    shell_terminal = STDIN_FILENO;
+
+    /* Loop until we are in the foreground.  */
+    while (tcgetpgrp(shell_terminal) != (shell_pgid = getpgrp()))
+        kill(-shell_pgid, SIGTTIN);
+
+    // ignore job control signals
+    signal(SIGINT, SIG_IGN);
+    signal(SIGTSTP, SIG_IGN);
+    signal(SIGTTIN, SIG_IGN);
+    signal(SIGTTOU, SIG_IGN);
+    signal(SIGQUIT, SIG_IGN);
+    signal(SIGCHLD, sigchld_handler);
+    // signal(SIGCHLD, SIG_IGN);
+
+    // Put ourselves in our own process group
+    shell_pgid = getpid();
+    if (setpgid(shell_pgid, shell_pgid) < 0)
+    {
+        perror("Couldn't put the shell in its own process group");
+        exit(1);
+    }
+
+    // Grab control of the terminal
+    tcsetpgrp(shell_terminal, shell_pgid);
+    // Save default terminal attributes for shell.
+    tcgetattr(shell_terminal, &shell_tmodes);
+
+    printf("%s\n", batch_file);
+
+    // open file and iterate line by line
+    FILE *file = fopen(batch_file, "r");
+
+    char inner_line[256];
+    char inner_cmd[256];
+    while (fgets(inner_line, sizeof(inner_line), file))
+    {
+        strcpy(inner_cmd, inner_line);
+        // remove newline
+        if (inner_cmd[strlen(inner_cmd) - 1] == '\n')
+        {
+            inner_cmd[strlen(inner_cmd) - 1] = '\0';
+        }
+
+        int num_pipes = 0;
+        int bg = 0;
+
+        // parse command
+        char tmp_cmd[256];
+        strcpy(tmp_cmd, inner_cmd);
+        int cmd_argc = 0;
+
+        char *cmd_seg = strtok(tmp_cmd, " ");
+        while (cmd_seg != NULL)
+        {
+            cmd_argc += 1;
+            cmd_seg = strtok(NULL, " ");
+        }
+        // add room for NULL termination
+        cmd_argc += 1;
+
+        strcpy(tmp_cmd, inner_cmd);
+        char *cmd_argv[cmd_argc];
+        cmd_seg = strtok(tmp_cmd, " ");
+        for (int i = 0; i < cmd_argc; i++)
+        {
+            if (i != cmd_argc - 1 && strcmp(cmd_seg, "|") == 0)
+            {
+                num_pipes += 1;
+            }
+            else if (i != cmd_argc - 1 && strcmp(cmd_seg, "&") == 0)
+            {
+                bg = 1;
+            }
+            cmd_argv[i] = cmd_seg;
+            cmd_seg = strtok(NULL, " ");
+        }
+        // NULL terminate
+        cmd_argv[cmd_argc] = NULL;
+
+        if (cmd_argc - 1 > 0)
+        {
+            if (num_pipes > 0)
+            {
+                if (bg)
+                {
+                    cmd_argv[cmd_argc - 2] = NULL;
+                    cmd_argc -= 1;
+
+                    int tmp_argc = cmd_argc - 2;
+                    int num_itr = 0;
+
+                    process *prev_p = (struct process *)malloc(sizeof(struct process));
+                    process *first_p = (struct process *)malloc(sizeof(struct process));
+
+                    while (num_itr != num_pipes + 1)
+                    {
+                        char *tmp_argv[256];
+                        int idx = 0;
+                        for (int i = tmp_argc; i >= 0; i--)
+                        {
+                            tmp_argc -= 1;
+                            if (strcmp(cmd_argv[i], "|") == 0)
+                            {
+                                break;
+                            }
+
+                            tmp_argv[idx] = cmd_argv[i];
+                            idx += 1;
+                        }
+
+                        int tmp_argc_2 = reverse_array(tmp_argv, idx);
+
+                        if (num_itr == 0)
+                        {
+                            populate_process_struct(prev_p, tmp_argv[0], NULL, tmp_argc_2, tmp_argv, 1);
+                        }
+                        else
+                        {
+                            process *p = (struct process *)malloc(sizeof(struct process));
+                            if (num_itr == num_pipes)
+                            {
+                                populate_process_struct(first_p, tmp_argv[0], prev_p, tmp_argc_2, tmp_argv, 1);
+                            }
+                            else
+                            {
+                                populate_process_struct(p, tmp_argv[0], prev_p, tmp_argc_2, tmp_argv, 1);
+                                prev_p = p;
+                            }
+                        }
+
+                        num_itr += 1;
+                    }
+                    job *j = (struct job *)malloc(sizeof(struct job));
+
+                    populate_job_struct(j, first_p, 0, 1);
+
+                    jobs[curr_id] = j;
+                    curr_id = curr_id + 1;
+
+                    run_job(j, 0);
+                }
+                else
+                {
+                    int tmp_argc = cmd_argc - 2;
+                    int num_itr = 0;
+
+                    process *prev_p = (struct process *)malloc(sizeof(struct process));
+                    process *first_p = (struct process *)malloc(sizeof(struct process));
+
+                    while (num_itr != num_pipes + 1)
+                    {
+                        char *tmp_argv[256];
+                        int idx = 0;
+                        for (int i = tmp_argc; i >= 0; i--)
+                        {
+                            tmp_argc -= 1;
+                            if (strcmp(cmd_argv[i], "|") == 0)
+                            {
+                                break;
+                            }
+
+                            tmp_argv[idx] = cmd_argv[i];
+                            idx += 1;
+                        }
+
+                        int tmp_argc_2 = reverse_array(tmp_argv, idx);
+
+                        if (num_itr == 0)
+                        {
+                            populate_process_struct(prev_p, tmp_argv[0], NULL, tmp_argc_2, tmp_argv, 1);
+                        }
+                        else
+                        {
+                            process *p = (struct process *)malloc(sizeof(struct process));
+                            if (num_itr == num_pipes)
+                            {
+                                populate_process_struct(first_p, tmp_argv[0], prev_p, tmp_argc_2, tmp_argv, 1);
+                            }
+                            else
+                            {
+                                populate_process_struct(p, tmp_argv[0], prev_p, tmp_argc_2, tmp_argv, 1);
+                                prev_p = p;
+                            }
+                        }
+
+                        num_itr += 1;
+                    }
+                    job *j = (struct job *)malloc(sizeof(struct job));
+
+                    populate_job_struct(j, first_p, 1, 1);
+
+                    jobs[curr_id] = j;
+                    curr_id = curr_id + 1;
+
+                    run_job(j, 1);
+                }
+            }
+            else
+            {
+                if (bg)
+                {
+                    cmd_argv[cmd_argc - 2] = NULL;
+                    cmd_argc -= 1;
+
+                    process *p = (struct process *)malloc(sizeof(struct process));
+                    job *j = (struct job *)malloc(sizeof(struct job));
+
+                    populate_process_struct(p, cmd_argv[0], NULL, cmd_argc, cmd_argv, 0);
+                    populate_job_struct(j, p, 0, 0);
+                    // populate_job_struct(j, p, 0, getpgid(getpid()));
+
+                    jobs[curr_id] = j;
+                    curr_id += 1;
+
+                    run_job(j, 0);
+                }
+                else
+                {
+                    // exit
+                    if (strcmp(cmd_argv[0], "exit") == 0)
+                    {
+                        wsh_exit();
+                    }
+                    // cd
+                    else if (strcmp(cmd_argv[0], "cd") == 0)
+                    {
+                        wsh_cd(cmd_argc, cmd_argv);
+                    }
+                    // jobs
+                    else if (strcmp(cmd_argv[0], "jobs") == 0)
+                    {
+                        wsh_jobs();
+                    }
+                    // fg
+                    else if (strcmp(cmd_argv[0], "fg") == 0)
+                    {
+                        wsh_fg(cmd_argc, cmd_argv);
+                    }
+                    // bg
+                    else if (strcmp(cmd_argv[0], "bg") == 0)
+                    {
+                        wsh_bg(cmd_argc, cmd_argv);
+                    }
+                    // run fg child process/job
+                    else
+                    {
+                        // run process in a job in the foreground
+                        process *p = (struct process *)malloc(sizeof(struct process));
+                        job *j = (struct job *)malloc(sizeof(struct job));
+
+                        populate_process_struct(p, cmd_argv[0], NULL, cmd_argc, cmd_argv, 0);
+                        populate_job_struct(j, p, 1, 0);
+
+                        jobs[curr_id] = j;
+                        curr_id = curr_id + 1;
+
+                        run_job(j, 1);
+                    }
+                }
+            }
+        }
+    }
+    fclose(file);
     return 0;
 }
 
