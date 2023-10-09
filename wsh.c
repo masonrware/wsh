@@ -460,7 +460,9 @@ void launch_process(process *p, pid_t pgid,
     pid_t pid = getpid();
     if (pgid == 0)
         pgid = pid;
-    setpgid(pid, pgid);
+    if (getpid() != getsid(0)) {
+        setpgid(pid, pgid);
+    }
     if (foreground)
         tcsetpgrp(shell_terminal, pgid);
 
@@ -537,7 +539,9 @@ void run_job(job *j, int foreground)
             {
                 j->pgid = pid;
             }
-            setpgid(pid, j->pgid);
+            if (getpid() != getsid(0)) {
+                setpgid(pid, j->pgid);
+            }
         }
 
         /* Clean up after pipes.  */
@@ -631,10 +635,12 @@ int runi()
 
     // Put ourselves in our own process group
     shell_pgid = getpid();
-    if (setpgid(shell_pgid, shell_pgid) < 0)
-    {
-        perror("Couldn't put the shell in its own process group");
-        exit(1);
+    if (getpid() != getsid(0)) {
+        if (setpgid(shell_pgid, shell_pgid) < 0)
+        {
+            perror("Couldn't put the shell in its own process group");
+            exit(1);
+        }
     }
 
     // Grab control of the terminal
@@ -905,12 +911,14 @@ int runb(char *batch_file)
 
     // Put ourselves in our own process group
     shell_pgid = getpid();
-    if (setpgid(shell_pgid, shell_pgid) < 0)
-    {
-        perror("Couldn't put the shell in its own process group");
-        exit(1);
+    if (getpid() != getsid(0)) {
+        if (setpgid(shell_pgid, shell_pgid) < 0)
+        {
+            perror("Couldn't put the shell in its own process group");
+            exit(1);
+        }
     }
-
+    
     // Grab control of the terminal
     tcsetpgrp(shell_terminal, shell_pgid);
     // Save default terminal attributes for shell.
