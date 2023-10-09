@@ -97,9 +97,9 @@ int mark_process_status(pid_t pid, int status)
                         else
                         {
                             p->completed = 1;
-                            if (WIFSIGNALED(status))
-                                fprintf(stderr, "%d: Terminated by signal %d.\n",
-                                        (int)pid, WTERMSIG(p->status));
+                            // if (WIFSIGNALED(status))
+                            //     fprintf(stderr, "%d: Terminated by signal %d.\n",
+                            //             (int)pid, WTERMSIG(p->status));
                         }
                         return 0;
                     }
@@ -918,7 +918,7 @@ int runb(char *batch_file)
             exit(1);
         }
     }
-    
+
     // Grab control of the terminal
     tcsetpgrp(shell_terminal, shell_pgid);
     // Save default terminal attributes for shell.
