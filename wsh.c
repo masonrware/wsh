@@ -27,6 +27,7 @@ typedef struct process
     int status;
     char completed;
     int dead;
+    int suspended;
 } process;
 
 typedef struct job
@@ -178,6 +179,29 @@ void put_job_in_background(job *j, int cont)
 
 /////
 
+void sigtstp_handler(int signum) {
+    pid_t pid;
+    int status;
+
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
+    {
+        for (int i = 0; i < 256; i++)
+        {
+            if (jobs[i] != NULL && (jobs[i]->dead == 0))
+            {
+                for (process *p = jobs[i]->first_process; p; p = p->next)
+                {
+                    if (p->pid == pid)
+                    {
+                        printf("found proc");
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
 void sigchld_handler(int signum)
 {
     pid_t pid;
@@ -185,7 +209,6 @@ void sigchld_handler(int signum)
 
     while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
     {
-
         for (int i = 0; i < 256; i++)
         {
             if (jobs[i] != NULL && (jobs[i]->dead == 0))
@@ -415,7 +438,6 @@ void wsh_fg(int argc, char *argv[])
     }
 }
 
-// TODO finish bg
 // bg should resume a process in the background - or run any suspended job in the background
 void wsh_bg(int argc, char *argv[])
 {
@@ -468,6 +490,7 @@ void launch_process(process *p, pid_t pgid,
     signal(SIGINT, SIG_DFL);
     signal(SIGQUIT, SIG_DFL);
     signal(SIGTSTP, SIG_DFL);
+    // signal(SIGTSTP, sigtstp_handler);
     signal(SIGTTIN, SIG_DFL);
     signal(SIGTTOU, SIG_DFL);
     signal(SIGCHLD, SIG_DFL);
@@ -620,9 +643,11 @@ int runi()
     while (tcgetpgrp(shell_terminal) != (shell_pgid = getpgrp()))
         kill(-shell_pgid, SIGTTIN);
 
+
     // ignore job control signals
     signal(SIGINT, SIG_IGN);
     signal(SIGTSTP, SIG_IGN);
+    signal(SIGCHLD, sigchld_handler);
     signal(SIGTTIN, SIG_IGN);
     signal(SIGTTOU, SIG_IGN);
     signal(SIGQUIT, SIG_IGN);
