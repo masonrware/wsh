@@ -1,7 +1,0 @@
-echo hello
-sleep 2
-echo after sleep
-sleep 4 &
-jobs
-sleep 3
-jobs
